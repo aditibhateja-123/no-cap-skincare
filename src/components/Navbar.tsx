@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Sparkles, History, BookOpen, Camera, Calendar, Heart, Layers, Sun, Tag, Target, MoreHorizontal, X } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide';
-  setActiveTab: (tab: 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide') => void;
+  activeTab: 'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide';
+  setActiveTab: (tab: 'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide') => void;
   savedScansCount: number;
   plansCount: number;
   savedWishlistCount: number;
@@ -33,8 +33,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     { tab: 'guide', label: 'Tone & skin guide', Icon: BookOpen },
   ];
   const mainTabs: { tab: NavbarProps['activeTab']; label: string; Icon: typeof Sun; count?: number }[] = [
-    { tab: 'finder', label: 'Sunscreen', Icon: Sun },
     { tab: 'scanner', label: 'Scan', Icon: Camera },
+    { tab: 'finder', label: 'Sunscreen', Icon: Sun },
     { tab: 'concern', label: 'Concern', Icon: Target },
     { tab: 'shelf', label: 'Shelf', Icon: Layers, count: shelfItemsCount },
   ];
@@ -46,7 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-18">
           {/* Logo & Brand */}
           <div
-            onClick={onNewScan}
+            onClick={() => setActiveTab('home')}
             className="flex items-center gap-3 cursor-pointer group"
           >
             <div className="w-10 h-10 rounded-xl bg-stone-900 text-[#faf8f5] flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-200">

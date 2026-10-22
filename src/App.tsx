@@ -18,7 +18,9 @@ import {
   CompletedCheckIn,
   ShelfState,
 } from './types';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Camera as HomeCamera, Sun as HomeSun, Target as HomeTarget } from 'lucide-react';
+import { FeedbackCard, feedbackEnabled } from './components/FeedbackCard';
+import { FEEDBACK } from './feedbackConfig';
 
 const STORAGE_KEY = 'nocap_skincare_history_v2';
 const CHECKINS_STORAGE_KEY = 'nocap_checkin_plans_v1';
@@ -26,7 +28,7 @@ const WISHLIST_STORAGE_KEY = 'nocap_wishlist_ids_v1';
 const SHELF_STORAGE_KEY = 'nocap_my_shelf_v1';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide'>('finder');
+  const [activeTab, setActiveTab] = useState<'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide'>('home');
   const [userAnswers, setUserAnswers] = useState<UserQuizAnswers | null>(null);
   const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult | null>(null);
   const [seenScan, setSeenScan] = useState<PhotoAnalysisResult | null>(null);
@@ -280,7 +282,40 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 pb-24 md:pb-16">
-        {activeTab === 'finder' ? (
+        {activeTab === 'home' ? (
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-8">
+            <div className="text-center space-y-2">
+              <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900">What do you need today?</h1>
+              <p className="text-sm text-stone-600 max-w-xl mx-auto">
+                Honest skincare picks for acne, marks after acne, and sunscreen. Real Nykaa products, chosen by fixed rules. The AI only describes your photo.
+              </p>
+            </div>
+            <div className="grid gap-4">
+              {[
+                { Icon: HomeCamera, title: 'Get my full routine', text: 'A short quiz and an optional face photo. You get what we see, then picks and a morning and night routine.', go: () => setActiveTab('scanner') },
+                { Icon: HomeSun, title: 'Find a sunscreen', text: 'Three taps, no photo. Matches for your skin feel, tone and budget, with no white cast options.', go: () => setActiveTab('finder') },
+                { Icon: HomeTarget, title: 'I already know my concern', text: 'Pick a concern, such as acne marks, dark circles, dandruff or hair fall, and skip the quiz.', go: () => setActiveTab('concern') },
+              ].map(({ Icon, title, text, go }) => (
+                <button
+                  key={title}
+                  onClick={go}
+                  className="text-left flex items-start gap-4 p-5 rounded-3xl border border-stone-200 bg-white hover:border-stone-900 transition-colors cursor-pointer"
+                >
+                  <span className="shrink-0 w-12 h-12 rounded-2xl bg-stone-900 text-white flex items-center justify-center">
+                    <Icon className="w-6 h-6" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-bold text-lg text-stone-900">{title}</span>
+                    <span className="block text-sm text-stone-600 mt-0.5">{text}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-center text-xs text-stone-500">
+              Guidance, not medical advice. Your answers and photos stay on your phone.
+            </p>
+          </div>
+        ) : activeTab === 'finder' ? (
           <SunscreenFinderView
             savedWishlistIds={savedWishlistIds}
             onToggleWishlist={handleToggleWishlist}
@@ -365,6 +400,8 @@ export default function App() {
         )}
       </main>
 
+      {(onResults || activeTab === 'shelf' || activeTab === 'checkins') && <FeedbackCard />}
+
       {nextStep && (
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 pb-8">
           <div className="rounded-3xl border border-stone-200 bg-white p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
@@ -395,6 +432,11 @@ export default function App() {
           </p>
           <div className="flex items-center gap-4 text-stone-500 text-center sm:text-right">
             <span>Prices are a snapshot from Nykaa. These links earn us nothing.</span>
+            {feedbackEnabled && FEEDBACK.viewUrl && (
+              <a href={FEEDBACK.viewUrl} target="_blank" rel="noreferrer" className="text-stone-700 hover:text-stone-900 font-medium underline">
+                Give feedback
+              </a>
+            )}
             <button
               onClick={() => setIsToneGuideOpen(true)}
               className="text-stone-700 hover:text-stone-900 font-medium underline cursor-pointer"

@@ -261,6 +261,8 @@ export default function App() {
             savedWishlistIds={savedWishlistIds}
             onToggleWishlist={handleToggleWishlist}
             onOpenQuiz={() => setActiveTab('scanner')}
+            onOpenConcern={() => setActiveTab('concern')}
+            onOpenLabelGuide={() => setActiveTab('label')}
           />
         ) : activeTab === 'concern' ? (
           <KnownConcernView
@@ -408,6 +410,8 @@ interface SunscreenFinderViewProps {
   savedWishlistIds: string[];
   onToggleWishlist: (productId: string) => void;
   onOpenQuiz: () => void;
+  onOpenConcern: () => void;
+  onOpenLabelGuide: () => void;
 }
 
 const finderChipClass = (active: boolean) =>
@@ -421,6 +425,8 @@ export const SunscreenFinderView: React.FC<SunscreenFinderViewProps> = ({
   savedWishlistIds,
   onToggleWishlist,
   onOpenQuiz,
+  onOpenConcern,
+  onOpenLabelGuide,
 }) => {
   const [feel, setFeel] = useState<FinderFeel | null>(null);
   const [tone, setTone] = useState<FinderTone | null>(null);
@@ -746,13 +752,27 @@ export const SunscreenFinderView: React.FC<SunscreenFinderViewProps> = ({
         </section>
       )}
 
-      <div className="text-center mt-10">
-        <button
-          onClick={onOpenQuiz}
-          className="text-sm font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 cursor-pointer"
-        >
-          Want a full routine? Take the skin quiz
-        </button>
+      <div className="text-center mt-10 space-y-2">
+        <div>
+          <button
+            onClick={onOpenQuiz}
+            className="text-sm font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 cursor-pointer"
+          >
+            Want a full routine? Take the skin quiz
+          </button>
+        </div>
+        <div>
+          <button
+            onClick={onOpenConcern}
+            className="text-sm font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 cursor-pointer"
+          >
+            Already know your concern? Skip the quiz
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <OtherConcernsBox onOpenLabelGuide={onOpenLabelGuide} />
       </div>
     </div>
   );
@@ -920,7 +940,6 @@ const KnownConcernView: React.FC<KnownConcernViewProps> = ({ onSubmit, onOpenLab
   const [sens, setSens] = useState<QCSens>('never');
   const [health, setHealth] = useState<QCHealth[]>([]);
   const [looking, setLooking] = useState<QCRole[]>(['cleanser', 'moisturizer', 'sunscreen', 'treatment']);
-  const [showOther, setShowOther] = useState(false);
 
   const toggle = <T,>(list: T[], item: T): T[] =>
     list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
@@ -1122,52 +1141,61 @@ const KnownConcernView: React.FC<KnownConcernViewProps> = ({ onSubmit, onOpenLab
         </div>
       </section>
 
-      <section className="bg-white border border-[#e7ded4] rounded-2xl p-5 sm:p-6">
-        <button
-          type="button"
-          onClick={() => setShowOther((v) => !v)}
-          className="w-full flex items-center justify-between text-left cursor-pointer"
-        >
-          <span className="font-serif text-lg font-bold text-stone-900">My concern is not in this list</span>
-          <span className="text-sm text-stone-600">{showOther ? 'Hide' : 'Show'}</span>
-        </button>
-        {showOther && (
-          <div className="mt-4 space-y-5 text-sm text-stone-700">
-            <div>
-              <h3 className="font-semibold text-stone-900 mb-1">These need a dermatologist, not a product</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                {QC_NEEDS_A_DOCTOR.map((x) => (
-                  <li key={x}>{x}</li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-stone-500">
-                We do not recommend products for these, because a doctor needs to diagnose them first.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-stone-900 mb-1">Not covered yet</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                {QC_NOT_COVERED.map((x) => (
-                  <li key={x}>{x}</li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs text-stone-500">
-                Our product list focuses on acne, marks and sunscreen, so we have no verified picks for these. You can
-                still use the Label guide to judge any product you find.
-              </p>
-              <button
-                type="button"
-                onClick={onOpenLabelGuide}
-                className="mt-2 text-xs font-medium text-stone-900 underline underline-offset-2 cursor-pointer"
-              >
-                Open the Label guide
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
+      <OtherConcernsBox onOpenLabelGuide={onOpenLabelGuide} />
 
       <p className="text-xs text-stone-500 text-center">Guidance, not medical advice.</p>
     </div>
+  );
+};
+
+const OtherConcernsBox: React.FC<{ onOpenLabelGuide: () => void }> = ({ onOpenLabelGuide }) => {
+  const [showOther, setShowOther] = useState(false);
+  return (
+    <section className="bg-white border border-[#e7ded4] rounded-2xl p-5 sm:p-6">
+      <button
+        type="button"
+        onClick={() => setShowOther((v) => !v)}
+        className="w-full flex items-center justify-between text-left cursor-pointer"
+      >
+        <span className="font-serif text-lg font-bold text-stone-900">My concern is not in this list</span>
+        <span className="text-sm text-stone-600">{showOther ? 'Hide' : 'Show'}</span>
+      </button>
+      {showOther && (
+        <div className="mt-4 space-y-5 text-sm text-stone-700">
+          <div>
+            <h3 className="font-semibold text-stone-900 mb-1">See a dermatologist first</h3>
+            <ul className="list-disc pl-5 space-y-1">
+              {QC_NEEDS_A_DOCTOR.map((x) => (
+                <li key={x}>{x}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-stone-500">
+              A dermatologist can diagnose these and tell you which treatment is right. That may be a prescription
+              medicine or a product you can buy over the counter. Trying products on your own first can make some of
+              these worse, so we do not suggest any until you have been seen.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-stone-900 mb-1">Not covered yet</h3>
+            <ul className="list-disc pl-5 space-y-1">
+              {QC_NOT_COVERED.map((x) => (
+                <li key={x}>{x}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-stone-500">
+              Our product list focuses on acne, marks and sunscreen, so we have no verified picks for these. You can
+              still use the Label guide to judge any product you find.
+            </p>
+            <button
+              type="button"
+              onClick={onOpenLabelGuide}
+              className="mt-2 text-xs font-medium text-stone-900 underline underline-offset-2 cursor-pointer"
+            >
+              Open the Label guide
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 };

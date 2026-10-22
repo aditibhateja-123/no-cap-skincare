@@ -1,0 +1,6 @@
+{
+  "name": "No Cap - Honest Skincare Picks",
+  "description": "Honest skincare picks, facial mark scanning, and catalog product matches tailored to your age, skin tone, and concerns.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

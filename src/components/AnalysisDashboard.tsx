@@ -1,0 +1,683 @@
+import React, { useState } from 'react';
+import {
+  AlertCircle,
+  ExternalLink,
+  Printer,
+  Bookmark,
+  RefreshCw,
+  Star,
+  CheckCircle,
+  Clock,
+  ShieldAlert,
+  ArrowRight,
+  Info,
+  Calendar,
+  Heart,
+} from 'lucide-react';
+import {
+  UserQuizAnswers,
+  PhotoAnalysisResult,
+  RankedProduct,
+  RoutineSchedule,
+  CheckInPlan,
+} from '../types';
+import {
+  checkReferral,
+  determineActiveStrategy,
+  rankProducts,
+  buildRoutineSchedule,
+  FIXED_SKIP_THESE,
+  FIXED_SEE_DERMATOLOGIST_WHEN,
+  formatLocalDateToYMD,
+  addDaysLocal,
+} from '../utils/skincareRules';
+import { CompareModal } from './CompareModal';
+
+interface AnalysisDashboardProps {
+  answers: UserQuizAnswers;
+  photoResult: PhotoAnalysisResult | null;
+  isDemoProfile?: boolean;
+  onNewScan: () => void;
+  onSaveToHistory: (consultation: {
+    ageRange: any;
+    skinTone: any;
+    concerns: string[];
+    productNames: string[];
+  }) => void;
+  isSaved: boolean;
+  onSelectProductForReview: (product: RankedProduct) => void;
+  onStartCheckInPlan: (plan: CheckInPlan) => void;
+  savedWishlistIds: string[];
+  onToggleWishlist: (productId: string) => void;
+}
+
+export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
+  answers,
+  photoResult,
+  isDemoProfile,
+  onNewScan,
+  onSaveToHistory,
+  isSaved,
+  onSelectProductForReview,
+  onStartCheckInPlan,
+  savedWishlistIds,
+  onToggleWishlist,
+}) => {
+  // Step 1: Run Referral Check
+  const referral = checkReferral(answers, photoResult);
+
+  // If referral triggered, show dedicated Referral Screen with NO products
+  if (referral.needsReferral) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-12 space-y-8 animate-in fade-in duration-200">
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-3xl p-6 sm:p-8 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0">
+              <AlertCircle className="w-7 h-7" />
+            </div>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-rose-800">
+                Medical Referral Recommended
+              </span>
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-rose-950">
+                Please See a Dermatologist
+              </h1>
+            </div>
+          </div>
+
+          <p className="text-xs sm:text-sm text-rose-900 leading-relaxed font-medium">
+            Based on your answers and visual indicators, over-the-counter products are not recommended
+            without an in-person medical evaluation. Here are the specific clinical reasons:
+          </p>
+
+          <div className="space-y-3">
+            {referral.reasons.map((reason, idx) => (
+              <div
+                key={idx}
+                className="p-3.5 rounded-2xl bg-white border border-rose-200 text-xs text-rose-900 flex items-start gap-3 shadow-2xs"
+              >
+                <div className="w-5 h-5 rounded-full bg-rose-100 text-rose-800 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                  {idx + 1}
+                </div>
+                <div className="leading-relaxed">{reason}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-4 rounded-2xl bg-white/80 border border-rose-200 text-xs text-stone-700 space-y-2">
+            <h3 className="font-bold text-stone-900">What to do next:</h3>
+            <ul className="space-y-1.5 list-disc pl-4 text-stone-600">
+              <li>Consult a qualified dermatologist or primary healthcare clinician for an in-person diagnostic examination.</li>
+              <li>Avoid picking, squeezing, or self-treating painful lesions, which risks scarring and secondary infection.</li>
+              <li>Keep your routine strictly gentle with lukewarm water and a basic non-active moisturizer until examined.</li>
+            </ul>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <button
+              onClick={onNewScan}
+              className="w-full sm:w-auto px-6 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+            >
+              Start Over with Different Answers
+            </button>
+            <span className="text-[11px] text-rose-700 font-medium text-center sm:text-right">
+              No products are prescribed or recommended for safety.
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 2: Determine Active Strategy & Rank Products from Catalog
+  const activeStrategy = determineActiveStrategy(answers, answers.concerns);
+
+  const rankedCleansers = answers.lookingFor.includes('cleanser')
+    ? rankProducts('cleanser', answers, activeStrategy.activeChosen, activeStrategy.useSalicylicCleanser)
+    : [];
+
+  const rankedMoisturizers = answers.lookingFor.includes('moisturizer')
+    ? rankProducts('moisturizer', answers, activeStrategy.activeChosen, activeStrategy.useSalicylicCleanser)
+    : [];
+
+  const rankedSunscreens = answers.lookingFor.includes('sunscreen')
+    ? rankProducts('sunscreen', answers, activeStrategy.activeChosen, activeStrategy.useSalicylicCleanser)
+    : [];
+
+  const rankedTreatments =
+    answers.lookingFor.includes('treatment') && !activeStrategy.basicsOnly && activeStrategy.activeChosen
+      ? rankProducts('treatment', answers, activeStrategy.activeChosen, activeStrategy.useSalicylicCleanser)
+      : [];
+
+  const hasBrownMarks = answers.concerns.includes('brown marks');
+  const routineSchedule = buildRoutineSchedule(activeStrategy, answers.skinTone, hasBrownMarks);
+
+  // Group all picked product names for history saving
+  const allPickedProducts = [
+    ...rankedCleansers,
+    ...rankedMoisturizers,
+    ...rankedSunscreens,
+    ...rankedTreatments,
+  ];
+
+  // Compare state
+  const [compareList, setCompareList] = useState<RankedProduct[]>([]);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [compareTypeError, setCompareTypeError] = useState<string | null>(null);
+
+  const handleToggleCompare = (product: RankedProduct) => {
+    if (compareList.some((p) => p.id === product.id)) {
+      setCompareList(compareList.filter((p) => p.id !== product.id));
+      setCompareTypeError(null);
+      return;
+    }
+
+    if (compareList.length > 0 && compareList[0].role !== product.role) {
+      setCompareTypeError('Compare products of the same type');
+      return;
+    }
+
+    if (compareList.length >= 3) {
+      setCompareTypeError('You can compare up to 3 products at a time');
+      return;
+    }
+
+    setCompareTypeError(null);
+    setCompareList([...compareList, product]);
+  };
+
+  const handleStartCheckIn = () => {
+    const today = new Date();
+    const d2 = addDaysLocal(today, 14);
+    const d6 = addDaysLocal(today, 42);
+    const d12 = addDaysLocal(today, 84);
+
+    const newPlan: CheckInPlan = {
+      id: 'plan-' + Date.now(),
+      startDate: formatLocalDateToYMD(today),
+      concerns: answers.concerns,
+      productNames: allPickedProducts.map((p) => p.name),
+      firstActiveName: activeStrategy.firstActiveName,
+      secondActiveName: activeStrategy.secondActiveName,
+      basicsOnly: activeStrategy.basicsOnly,
+      dueDates: {
+        week2: formatLocalDateToYMD(d2),
+        week6: formatLocalDateToYMD(d6),
+        week12: formatLocalDateToYMD(d12),
+      },
+      completedCheckIns: [],
+      isUnder18: answers.ageRange === 'under 18',
+      ageRange: answers.ageRange,
+    };
+
+    onStartCheckInPlan(newPlan);
+  };
+
+  const handleSave = () => {
+    onSaveToHistory({
+      ageRange: answers.ageRange,
+      skinTone: answers.skinTone,
+      concerns: answers.concerns,
+      productNames: allPickedProducts.map((p) => p.name),
+    });
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+
+      {/* Overview Card */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-stone-200">
+        {isDemoProfile && (
+          <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold">
+            <span>Demo profile, not a real person</span>
+          </div>
+        )}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-stone-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-wider font-bold text-stone-500">
+                Your Matched Profile
+              </span>
+              <span className="text-xs text-stone-300">·</span>
+              <span className="text-xs text-stone-600 font-medium">Honest skincare picks</span>
+            </div>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 mt-1">
+              Personalized Product Matches
+            </h1>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={handleStartCheckIn}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-900 transition-colors shadow-xs cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Start a check-in plan</span>
+            </button>
+
+            <button
+              onClick={handleSave}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl border transition-colors cursor-pointer ${
+                isSaved
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-300'
+              }`}
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>{isSaved ? 'Saved in History' : 'Save Picks'}</span>
+            </button>
+
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-800 border border-stone-300 transition-colors cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print Summary</span>
+            </button>
+
+            <button
+              onClick={onNewScan}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-stone-900 hover:bg-stone-800 text-white transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retake Quiz</span>
+            </button>
+          </div>
+        </div>
+
+        {/* User answers recap */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 text-xs text-stone-700">
+          <div>
+            <span className="text-stone-400 block text-[11px]">Age Group</span>
+            <strong className="text-stone-900 text-sm">{answers.ageRange}</strong>
+          </div>
+          <div>
+            <span className="text-stone-400 block text-[11px]">Skin Tone</span>
+            <strong className="text-stone-900 text-sm capitalize">{answers.skinTone}</strong>
+          </div>
+          <div>
+            <span className="text-stone-400 block text-[11px]">Midday Feel</span>
+            <strong className="text-stone-900 text-sm capitalize">{answers.middayFeel}</strong>
+          </div>
+          <div>
+            <span className="text-stone-400 block text-[11px]">Sensitivity</span>
+            <strong className="text-stone-900 text-sm capitalize">{answers.sensitivity}</strong>
+          </div>
+        </div>
+
+        {/* Photo findings note if attached */}
+        {photoResult && photoResult.image_ok && (
+          <div className="mt-4 p-3 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-600">
+            {isDemoProfile && (
+              <div className="mb-1 text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-0.5 inline-block">
+                Fake photo result (Demo profile, not a real person)
+              </div>
+            )}
+            <div>
+              <span className="font-semibold text-stone-800">Photo notes: </span>
+              {photoResult.summary}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Basics Only Notice if applicable */}
+      {routineSchedule.basicsOnly && (
+        <div className="p-5 rounded-3xl bg-amber-50/70 border border-amber-300 text-xs text-amber-950 space-y-1.5">
+          <h3 className="font-bold text-sm text-amber-900">Gentle Basics Only Prescribed</h3>
+          <p className="leading-relaxed">{routineSchedule.basicsReason}</p>
+        </div>
+      )}
+
+      {/* Error notification for invalid compare */}
+      {compareTypeError && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-xs font-bold text-amber-950 flex items-center justify-between shadow-2xs">
+          <span>{compareTypeError}</span>
+          <button
+            onClick={() => setCompareTypeError(null)}
+            className="text-stone-500 hover:text-stone-900 text-xs font-semibold underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* ================= PRODUCT CARDS SECTIONS ================= */}
+      <div className="space-y-8">
+        {/* Cleansers */}
+        {rankedCleansers.length > 0 && (
+          <ProductGroupSection
+            title="Cleansers"
+            products={rankedCleansers}
+            onSelectProduct={onSelectProductForReview}
+            compareList={compareList}
+            onToggleCompare={handleToggleCompare}
+            savedWishlistIds={savedWishlistIds}
+            onToggleWishlist={onToggleWishlist}
+          />
+        )}
+
+        {/* Moisturizers */}
+        {rankedMoisturizers.length > 0 && (
+          <ProductGroupSection
+            title="Moisturizers"
+            products={rankedMoisturizers}
+            onSelectProduct={onSelectProductForReview}
+            compareList={compareList}
+            onToggleCompare={handleToggleCompare}
+            savedWishlistIds={savedWishlistIds}
+            onToggleWishlist={onToggleWishlist}
+          />
+        )}
+
+        {/* Sunscreens */}
+        {rankedSunscreens.length > 0 && (
+          <ProductGroupSection
+            title="Sunscreens"
+            products={rankedSunscreens}
+            onSelectProduct={onSelectProductForReview}
+            compareList={compareList}
+            onToggleCompare={handleToggleCompare}
+            savedWishlistIds={savedWishlistIds}
+            onToggleWishlist={onToggleWishlist}
+          />
+        )}
+
+        {/* Treatments */}
+        {rankedTreatments.length > 0 && (
+          <ProductGroupSection
+            title="Targeted Treatment"
+            subtitle={`Only one active: ${activeStrategy.firstActiveName || 'Single Active'}`}
+            products={rankedTreatments}
+            onSelectProduct={onSelectProductForReview}
+            compareList={compareList}
+            onToggleCompare={handleToggleCompare}
+            savedWishlistIds={savedWishlistIds}
+            onToggleWishlist={onToggleWishlist}
+          />
+        )}
+      </div>
+
+      {/* Matching & Pricing Disclaimers */}
+      <div className="p-4 rounded-2xl bg-stone-100 border border-stone-200 text-xs text-stone-600 space-y-1">
+        <p>
+          <strong>Matching facts:</strong> Matches use the product name and listing numbers only.
+          Ingredient lists are not checked, so read the label.
+        </p>
+        <p>
+          Prices are a snapshot from Nykaa on the checked date and change often. These links earn
+          us nothing.
+        </p>
+      </div>
+
+      {/* ================= ROUTINE TIMELINE & SCHEDULE ================= */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-stone-200 space-y-6">
+        <div>
+          <span className="text-xs uppercase tracking-wider font-bold text-stone-500">
+            Start Schedule
+          </span>
+          <h2 className="font-serif text-xl sm:text-2xl font-bold text-stone-900 mt-0.5">
+            How to Introduce Your Routine
+          </h2>
+          <p className="text-xs text-stone-600 mt-1">{routineSchedule.timelineNote}</p>
+          {routineSchedule.deeperToneNote && (
+            <p className="text-xs text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200 mt-2">
+              {routineSchedule.deeperToneNote}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-1.5">
+            <span className="font-bold text-stone-900 block">Weeks 1 to 2</span>
+            <p className="text-stone-600 leading-relaxed">{routineSchedule.schedule.phase1}</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-1.5">
+            <span className="font-bold text-stone-900 block">Week 3</span>
+            <p className="text-stone-600 leading-relaxed">{routineSchedule.schedule.phase2}</p>
+          </div>
+          <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-1.5">
+            <span className="font-bold text-stone-900 block">Week 6 or Later</span>
+            <p className="text-stone-600 leading-relaxed">{routineSchedule.schedule.phase3}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ================= SKIP THESE & WHEN TO SEE A DERMATOLOGIST ================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Skip these */}
+        <div className="bg-white rounded-3xl p-6 shadow-xs border border-stone-200 space-y-3">
+          <h3 className="font-serif text-lg font-bold text-rose-950 flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-rose-600" />
+            <span>Skip These</span>
+          </h3>
+          <ul className="space-y-2 text-xs text-stone-700">
+            {FIXED_SKIP_THESE.map((item, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="text-rose-600 font-bold shrink-0">✕</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* When to see a dermatologist */}
+        <div className="bg-white rounded-3xl p-6 shadow-xs border border-stone-200 space-y-3">
+          <h3 className="font-serif text-lg font-bold text-stone-900 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-amber-700" />
+            <span>When to See a Dermatologist</span>
+          </h3>
+          <ul className="space-y-2 text-xs text-stone-700">
+            {FIXED_SEE_DERMATOLOGIST_WHEN.map((item, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="text-amber-700 font-bold shrink-0">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Floating Compare Action Bar */}
+      {compareList.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-stone-900 text-white rounded-2xl px-5 py-3 shadow-xl flex items-center gap-4 max-w-lg w-[92%] sm:w-auto justify-between border border-stone-700 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold">
+              Comparing {compareList.length}/3 {compareList[0].role}s
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setCompareList([]);
+                setCompareTypeError(null);
+              }}
+              className="text-xs text-stone-400 hover:text-white px-2 py-1 cursor-pointer"
+            >
+              Clear
+            </button>
+            <button
+              disabled={compareList.length < 2}
+              onClick={() => setIsCompareOpen(true)}
+              className="px-4 py-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 text-xs font-bold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {compareList.length < 2 ? 'Pick 1 more' : `Compare (${compareList.length})`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Compare Modal */}
+      <CompareModal
+        isOpen={isCompareOpen}
+        onClose={() => setIsCompareOpen(false)}
+        products={compareList}
+        onRemoveProduct={(id) => {
+          const next = compareList.filter((p) => p.id !== id);
+          setCompareList(next);
+          if (next.length === 0) setIsCompareOpen(false);
+        }}
+      />
+
+      {/* Small, quiet line at the bottom of the results screen */}
+      <div className="text-center text-xs text-stone-500 py-3 border-t border-stone-200">
+        Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist.
+      </div>
+    </div>
+  );
+};
+
+interface ProductGroupSectionProps {
+  title: string;
+  subtitle?: string;
+  products: RankedProduct[];
+  onSelectProduct: (p: RankedProduct) => void;
+  compareList: RankedProduct[];
+  onToggleCompare: (p: RankedProduct) => void;
+  savedWishlistIds: string[];
+  onToggleWishlist: (productId: string) => void;
+}
+
+const ProductGroupSection: React.FC<ProductGroupSectionProps> = ({
+  title,
+  subtitle,
+  products,
+  onSelectProduct,
+  compareList,
+  onToggleCompare,
+  savedWishlistIds,
+  onToggleWishlist,
+}) => {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="font-serif text-xl sm:text-2xl font-bold text-stone-900">{title}</h2>
+        {subtitle && <p className="text-xs text-stone-500 mt-0.5">{subtitle}</p>}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {products.map((p) => {
+          const isCompared = compareList.some((item) => item.id === p.id);
+          const isSavedInWishlist = savedWishlistIds.includes(p.id);
+
+          return (
+            <div
+              key={p.id}
+              className="bg-white rounded-3xl p-5 shadow-xs border border-stone-200 flex flex-col justify-between space-y-4 hover:border-stone-400 transition-colors"
+            >
+              <div className="space-y-3">
+                {/* Product Card Top Bar: Compare checkbox & Save heart */}
+                <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-stone-700 select-none">
+                    <input
+                      type="checkbox"
+                      checked={isCompared}
+                      onChange={() => onToggleCompare(p)}
+                      className="rounded border-stone-300 accent-stone-900 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span>Compare</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => onToggleWishlist(p.id)}
+                    className="p-1 rounded-full hover:bg-stone-100 transition-colors cursor-pointer"
+                    title={isSavedInWishlist ? 'Saved in wishlist' : 'Save to wishlist'}
+                  >
+                    <Heart
+                      className={`w-4 h-4 transition-colors ${
+                        isSavedInWishlist
+                          ? 'fill-rose-500 text-rose-500'
+                          : 'text-stone-400 hover:text-rose-500'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Product Card Header */}
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {p.dermReview && (
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Reviewed by {p.dermReview.reviewedBy}
+                      </span>
+                    )}
+                    {p.flagLabels.map((f, i) => (
+                      <span
+                        key={i}
+                        className="text-[10px] font-bold text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200"
+                      >
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                  <h3 className="font-serif font-bold text-sm sm:text-base text-stone-900 leading-snug">
+                    {p.name}
+                  </h3>
+                </div>
+
+                {/* Price & Rating */}
+                <div className="space-y-1 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl font-bold font-mono text-stone-900">₹{p.price}</span>
+                    {p.mrp > p.price && (
+                      <span className="text-xs font-mono text-stone-400 line-through">
+                        ₹{p.mrp}
+                      </span>
+                    )}
+                    {p.isAboveBudget && (
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                        Above your budget
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-stone-500">
+                    rated {p.rating} from {p.ratingCount.toLocaleString('en-IN')} ratings on {p.seller}, price checked {p.checkedAt}
+                  </div>
+                </div>
+
+                {/* Matched On reasons */}
+                <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 text-[11px] text-stone-700 space-y-1">
+                  <span className="font-bold text-stone-800 block text-[10px] uppercase tracking-wider">
+                    Matched on:
+                  </span>
+                  <ul className="space-y-0.5 pl-3 list-disc text-stone-600">
+                    {p.matchedOn.slice(0, 3).map((m, idx) => (
+                      <li key={idx}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="space-y-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => onSelectProduct(p)}
+                  className="w-full py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                >
+                  What reviewers say
+                </button>
+
+                <a
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <span>View on Nykaa and read the reviews</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};

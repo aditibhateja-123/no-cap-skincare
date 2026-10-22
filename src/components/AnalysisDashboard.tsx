@@ -963,7 +963,7 @@ export const FaceScanReport: React.FC<FaceScanReportProps> = ({ photoResult, isD
 
 // ---------- Routine cost, sharing, 6-week reminder and cheaper alternatives ----------
 
-const APP_SHARE_URL = 'https://ai.studio/apps/b127c0ca-a515-40e2-950e-a99717f4983c';
+const APP_SHARE_URL = 'https://no-cap-skincare.vercel.app';
 
 function findCheaperAlternative(p: RankedProduct): AltCatalogProduct | null {
   const tagKeys = ['oily', 'dry', 'sensitive', 'acne', 'noWhiteCast'] as const;

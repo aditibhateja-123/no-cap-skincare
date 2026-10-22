@@ -453,6 +453,7 @@ STRICT RULES:
     return res.status(500).json({
       error: 'Unable to analyze photo at this time. You can still view recommendations with the quiz.',
       reason,
+      detail: msg.slice(0, 250), // TEMPORARY for diagnosis; remove after fixing
     });
   }
 });

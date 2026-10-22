@@ -119,21 +119,16 @@ export const SkinScannerInput: React.FC<SkinScannerInputProps> = ({
   const [step, setStep] = useState<1 | 2>(1);
 
   // Form states
-  const [lookingFor, setLookingFor] = useState<Role[]>([
-    'cleanser',
-    'moisturizer',
-    'sunscreen',
-    'treatment',
-  ]);
-  const [ageRange, setAgeRange] = useState<AgeRange>('18 to 24');
-  const [skinTone, setSkinTone] = useState<SkinTone>('wheatish');
-  const [concerns, setConcerns] = useState<Concern[]>(['acne', 'brown marks']);
-  const [middayFeel, setMiddayFeel] = useState<MiddayFeel>('combination');
-  const [breakoutLevel, setBreakoutLevel] = useState<BreakoutLevel>('mild');
-  const [marksDuration, setMarksDuration] = useState<MarksDuration>('3 to 12 months');
-  const [sensitivity, setSensitivity] = useState<Sensitivity>('sometimes');
+  const [lookingFor, setLookingFor] = useState<Role[]>([]);
+  const [ageRange, setAgeRange] = useState<AgeRange | null>(null);
+  const [skinTone, setSkinTone] = useState<SkinTone | null>(null);
+  const [concerns, setConcerns] = useState<Concern[]>([]);
+  const [middayFeel, setMiddayFeel] = useState<MiddayFeel | null>(null);
+  const [breakoutLevel, setBreakoutLevel] = useState<BreakoutLevel | null>(null);
+  const [marksDuration, setMarksDuration] = useState<MarksDuration | null>(null);
+  const [sensitivity, setSensitivity] = useState<Sensitivity | null>(null);
   const [healthSituations, setHealthSituations] = useState<HealthSituation[]>([]);
-  const [budget, setBudget] = useState<Budget>('₹300 to 600');
+  const [budget, setBudget] = useState<Budget | null>(null);
 
   // Photo analysis states
   const [consentChecked, setConsentChecked] = useState(false);
@@ -145,6 +140,18 @@ export const SkinScannerInput: React.FC<SkinScannerInputProps> = ({
   const scannedImageRef = useRef<string | null>(null);
 
   const isUnder18 = ageRange === 'under 18';
+
+  const missingAnswers: string[] = [];
+  if (lookingFor.length === 0) missingAnswers.push('what you are looking for');
+  if (!ageRange) missingAnswers.push('age range');
+  if (!skinTone) missingAnswers.push('skin tone');
+  if (concerns.length === 0) missingAnswers.push('concerns');
+  if (!middayFeel) missingAnswers.push('how skin feels by midday');
+  if (!breakoutLevel) missingAnswers.push('breakouts');
+  if (!marksDuration) missingAnswers.push('how long marks have been there');
+  if (!sensitivity) missingAnswers.push('stinging or redness');
+  if (!budget) missingAnswers.push('budget');
+  const quizComplete = missingAnswers.length === 0;
 
   const toggleLookingFor = (r: Role) => {
     setLookingFor((prev) =>
@@ -221,7 +228,7 @@ export const SkinScannerInput: React.FC<SkinScannerInputProps> = ({
     setIsScanningPhoto(true);
     setPhotoError(null);
     try {
-      const result = await analyzePhoto(imageDataUrl, ageRange, consentChecked);
+      const result = await analyzePhoto(imageDataUrl, ageRange as AgeRange, consentChecked);
       setPhotoResult(result);
       if (!result.image_ok || result.confidence === 'low') {
         setPhotoError(
@@ -295,17 +302,21 @@ export const SkinScannerInput: React.FC<SkinScannerInputProps> = ({
       });
     }
 
+    if (!quizComplete) {
+      setStep(1);
+      return;
+    }
     const answers: UserQuizAnswers = {
       lookingFor,
-      ageRange,
-      skinTone,
+      ageRange: ageRange as AgeRange,
+      skinTone: skinTone as SkinTone,
       concerns: finalConcerns,
-      middayFeel,
-      breakoutLevel,
-      marksDuration,
-      sensitivity,
+      middayFeel: middayFeel as MiddayFeel,
+      breakoutLevel: breakoutLevel as BreakoutLevel,
+      marksDuration: marksDuration as MarksDuration,
+      sensitivity: sensitivity as Sensitivity,
       healthSituations,
-      budget,
+      budget: budget as Budget,
     };
 
     onComplete(answers, photoResult, isDemoProfile);
@@ -729,11 +740,15 @@ export const SkinScannerInput: React.FC<SkinScannerInputProps> = ({
           </div>
 
           {/* Next Button */}
-          <div className="flex justify-end pt-4">
+          <div className="flex flex-col items-end gap-2 pt-4">
+            {!quizComplete && (
+              <p className="text-xs text-stone-600 text-right">Still to answer: {missingAnswers.join(', ')}</p>
+            )}
             <button
               type="button"
+              disabled={!quizComplete}
               onClick={() => setStep(2)}
-              className="px-8 py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+              className="px-8 py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span>Continue to Step 2: Face Photo (Optional)</span>
               <ArrowRight className="w-4 h-4 text-amber-400" />

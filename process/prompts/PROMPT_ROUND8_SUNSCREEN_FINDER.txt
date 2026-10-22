@@ -1,0 +1,37 @@
+Add one feature to No Cap, the "Sunscreen finder", as a fast front door to the app. Keep everything else exactly as it is. Do not add any AI calls: this is plain TypeScript using the existing catalog and ranking code.
+
+Why: the most common complaint from our users is finding a sunscreen that does not break out oily, acne-prone skin or leave a white cast. This screen answers that in under 30 seconds, with no photo, no consent box and no long quiz.
+
+1. WHERE IT LIVES
+- Add a "Sunscreen finder" screen as the FIRST item in the top navigation, and make it the screen the app opens on. The existing "Skin Scanner" quiz stays exactly as it is, in its own tab. Add a small link at the bottom of the finder: "Want a full routine? Take the skin quiz".
+- Everything on this screen works without any account, photo or consent tick.
+
+2. THE FOUR QUESTIONS (all on one screen, tap to choose, no typing, nothing pre-selected)
+- Skin feel by midday: Oily / Combination / Dry / Normal
+- Skin tone (with the same colour dots as the quiz): Very fair / Fair / Wheatish / Medium brown / Deep brown
+- Budget: Under ₹300 / ₹300 to 600 / Over ₹600
+- Priorities (tick any): "No white cast", "SPF 50 or higher", "Gentle on sensitive skin", "For acne-prone skin"
+- Show results as soon as skin feel, skin tone and budget are chosen. The priorities are optional and update the results as she ticks them.
+
+3. THE RULES (write as a TypeScript function findSunscreens(answers) in src/utils/skincareRules.ts that reuses the existing rankProducts logic and the catalog fields, no AI)
+- Only products with role sunscreen and spf 30 or higher, rating 4.0 or higher, and 500 or more ratings.
+- Use only the catalog fields that already exist (tags, spf, flags, price, rating, ratingCount, reviews). Do not add new data and do not guess ingredients.
+- Score with the same scoring as the main ranking: oily or combination skin favours products tagged oily, dry skin favours products tagged dry, noWhiteCast earns more on wheatish, medium brown and deep brown skin tones, spf 50 or higher earns a bonus, sensitive earns a bonus when she ticks "Gentle on sensitive skin", acne earns a bonus when she ticks "For acne-prone skin". Add the small rating and review count bonus as in the main ranking.
+- Priorities are filters when ticked: "No white cast" keeps only products tagged noWhiteCast, "SPF 50 or higher" keeps only spf 50 or higher, "Gentle on sensitive skin" keeps only products tagged sensitive and excludes products with the flag high_strength, "For acne-prone skin" keeps only products tagged acne.
+- Budget: under ₹300 = cap 300, ₹300 to 600 = cap 600, over ₹600 = cap 1000. Show products within the cap first. If fewer than 3 match, add the closest ones and mark them "Above your budget" or, if a filter removed them, say which priority they miss, for example "Does not match: SPF 50 or higher".
+- Show up to 3 products. Break ties by lower price.
+- If nothing matches the ticked priorities, say "No sunscreen in our list matches all of these. Here are the closest." and show the closest.
+
+4. WHAT EACH RESULT SHOWS
+- Use the same product card as the rest of the app: name, price in ₹ with the MRP struck through, rating, number of ratings in Indian number format with the seller name, the matchedOn reasons, SPF, flags ("Check the label: may contain a second active", "Strong version"), the real review summary when it exists or "No review text collected for this product yet", a "View on Nykaa and read the reviews" link, and the Compare and Save controls. If a product has dermReview show the small "Reviewed by NAME" badge, otherwise show nothing.
+- Never write "best", "recommended" or "dermatologist tested" for any product. Do not add any AI text.
+- Add this note under the results: "Matches use the product name and listing numbers only. Ingredient lists are not checked, so read the label." and "Prices are a snapshot from the checked date and change often."
+- Add one practical line under the results, not as advice about a product: "Use about two finger lengths for face and neck, and reapply every 2 to 3 hours if you are outdoors."
+- Add the quiet footer line already used in the app: "Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist."
+
+5. SAFETY
+- This screen only ever shows sunscreens, so it needs no referral screen. Add a note near the top: "If a product burns, swells or gives you a rash, stop using it and see a doctor."
+- Do not ask about or store anything health-related on this screen. Do not store anything in localStorage except the choices she made on this screen (skin feel, tone, budget, ticked priorities) so the screen remembers them after a reload, with try/catch, and add a "Reset" button.
+- Never store typed text or photos.
+
+Test these yourself and fix anything that fails: (a) the app opens on the Sunscreen finder, and the old quiz still works from its own tab; (b) oily skin plus deep brown plus "No white cast" shows only sunscreens tagged noWhiteCast, ranked with the white cast bonus; (c) a budget of under ₹300 shows only products within ₹300 first and marks any extra as "Above your budget"; (d) ticking "SPF 50 or higher" removes every spf below 50; (e) if the ticked priorities match nothing, the "closest" message appears and each product says which priority it misses; (f) every product, price, rating and review shown exists in src/data/catalog.json; (g) the choices survive a reload and Reset clears them; (h) no photo, consent box or health question appears anywhere on this screen.

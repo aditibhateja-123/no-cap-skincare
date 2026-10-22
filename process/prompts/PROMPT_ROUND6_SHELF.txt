@@ -1,0 +1,41 @@
+Add one feature to No Cap, "My shelf" (routine check). Keep everything else exactly as it is. Do not add any AI calls: this is plain TypeScript rules and on-device storage.
+
+Goal: a person tells us which products she already owns, and the app tells her which combinations can clash, what is doubled up, and a simple way to arrange them. It never recommends buying anything here.
+
+1. NAVIGATION AND PICKING PRODUCTS
+- Add a "My shelf" screen to the top navigation.
+- She picks what she owns from the real catalog (src/data/catalog.json), grouped by type (cleanser, moisturizer, sunscreen, treatment), with a search box. Show only the catalog name and type. Never accept typed product names as data.
+- Also add "Something else I use": a fixed list of checkboxes, nothing typed: Retinol or retinoid, Prescription cream from a doctor, AHA (glycolic, lactic, mandelic), BHA (salicylic acid), Benzoyl peroxide, Vitamin C, Azelaic acid, Niacinamide, Alpha arbutin, Physical scrub, Another cleanser, Another sunscreen.
+- Each catalog product has an activeKey (or null). Treat a product's activeKey as the active it contains. Treat a product with the flag may_contain_extra_active as "may contain a second active, check the label" and show that note on the shelf. Do not guess the second active.
+- Save the shelf on this device only: store product ids and the checkbox keys in localStorage with try/catch. Never store typed text, photos or anything else. Add a "Clear my shelf" button.
+
+2. THE RULES (write as a TypeScript function evaluateShelf(items) in src/utils/skincareRules.ts, no AI)
+Work out the set of actives she has from the catalog activeKeys and the checkboxes. Then apply these rules and show every rule that applies, strongest first.
+Rule A, stop and see a doctor: if she ticks "Prescription cream from a doctor", show "Ask the doctor who prescribed it before changing or adding anything" and show only that, with no other advice.
+Rule B, too many actives: if she has three or more different actives in total, show "That is a lot of actives for skin to handle. Keep one active going at a time and pause the rest until your skin is calm."
+Rule C, exfoliating acids together: AHA and BHA, or either of them together with a retinoid, show "Do not use these on the same night. Strong exfoliation together raises the chance of stinging, peeling and darker marks. Pick one for now."
+Rule D, retinoid with other strong actives: retinoid with benzoyl peroxide or vitamin C, show "Use these on different nights, or ask a dermatologist how to combine them. Together they often irritate."
+Rule E, vitamin C with an exfoliating acid: show "Use these at different times of day, for example vitamin C in the morning and the acid at night, or on different days."
+Rule F, scrub with any active: if "Physical scrub" is ticked and she has any active, show "Scrubs plus actives can damage the skin barrier. Pause the scrub."
+Rule G, doubled up: two cleansers, or two sunscreens, or two products of the same activeKey: show "You have two of the same kind. You only need one at a time."
+Rule H, no sunscreen: if she has any active (or acid or retinoid or benzoyl peroxide) and no sunscreen on the shelf, show "Actives make skin more sun sensitive and marks darker when you skip sunscreen. A daily sunscreen matters more than any serum." This is not a product recommendation, so do not name a product.
+Rule I, no moisturizer: if she has an active and no moisturizer, show "A plain moisturizer helps the skin tolerate actives."
+Rule J, fine as it is: if none of A to I applies and she has at least one item, show "Nothing on your shelf clashes. Keep to one new thing at a time."
+Combinations not listed above (for example niacinamide with azelaic acid, or alpha arbutin with niacinamide) must NOT be flagged. Do not invent extra clash rules.
+Never write "safe", "recommended", "approved" or "dermatologist tested" about any combination. Under every result add "These are general guidelines, not medical advice."
+
+3. A SIMPLE WAY TO ARRANGE IT
+After the rules, show "A simple way to arrange what you have" built only from her shelf and the rules above, as a plain table:
+- Morning: cleanser, moisturizer, sunscreen (only the ones she owns).
+- Night: cleanser, then at most ONE active per night, then moisturizer. If she has two or more actives, spread them over different nights (for example active 1 on nights 1, 3 and 5 and active 2 on night 2 and 4 only if no rule above says to pause it, and plain nights in between). Put any active that rule B, C or D says to pause under "Pause for now" instead of in the table.
+- Treat the vitamin C morning exception from rule E as allowed.
+- Show a line: "Add one new product at a time, and patch test it first."
+Do not suggest buying anything and do not name products that are not on her shelf.
+
+4. SAFETY AROUND THE FEATURE
+- If the user's earlier quiz answers say pregnant or breastfeeding, or on a prescribed treatment, or under 18 (these are already known in the app state, do not ask again), show above the result: "Because of your situation, check any change to your routine with a doctor first." Still show the rules.
+- If she reports burning, swelling or a rash, do not give routine advice: this screen does not ask about symptoms, so add a line at the top: "If any product is burning, swelling or giving you a rash, stop it and see a doctor."
+- Use ₹ for any price shown. Do not show prices unless you already show them on the cards.
+- Add the small footer line already used in the app: "Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist."
+
+Test these yourself and fix anything that fails: (a) a shelf with only a cleanser, moisturizer and sunscreen shows rule J; (b) a BHA product plus an AHA tick shows rule C; (c) a retinoid tick plus benzoyl peroxide tick shows rule D and no word "safe"; (d) a shelf with an active but no sunscreen shows rule H and names no product; (e) ticking "Prescription cream from a doctor" shows only rule A; (f) three actives show rule B and spread or pause them in the arrangement table; (g) niacinamide plus azelaic acid shows no clash; (h) after reload the shelf comes back from localStorage with ids and keys only, and Clear my shelf empties it; (i) nothing typed or any photo is ever written to localStorage; (j) every product shown on this screen exists in src/data/catalog.json.

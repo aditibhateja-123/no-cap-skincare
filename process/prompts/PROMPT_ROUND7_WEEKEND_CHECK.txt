@@ -1,0 +1,41 @@
+Add one feature to No Cap, the "Weekend check" (10-second weekly habit), and make one small change to the existing check-ins. Keep everything else exactly as it is. Do not add any AI calls and do not send any photo anywhere: all of this is plain TypeScript and on-device storage.
+
+Why: most people will not open a long form every few weeks. The weekly habit must take about 10 seconds, feel like a streak of selfies, and never feel like homework.
+
+1. WEEKEND CHECK (weekly, 10 seconds)
+- Add a "Weekend check" card at the top of the Check-ins screen for every saved check-in plan. It shows "Your Weekend check is ready" on Saturday and Sunday, and "Last done N days ago" on other days. It is never a pop-up, never a push notification, and never blocks anything.
+- Tapping it opens one screen with three one-tap questions, no typing:
+  (a) How does your skin feel this week? Calmer / Same / More irritated
+  (b) Any new breakouts? None / A few / Many
+  (c) Did you wear sunscreen most days? Yes / Some days / Rarely
+- Optional fourth step: "Add a photo for your own timeline" (can be skipped). Rules for the photo:
+  - Hidden and disabled for under 18, using the same age rule as the rest of the app.
+  - Requires a tick box: "This photo stays on this device only. It is never uploaded."
+  - Take it with the camera or pick one from the device. Shrink and re-encode it in the browser to JPEG with the longest side at 800 px (this removes EXIF data).
+  - Store it only in IndexedDB on this device (with try/catch), together with the date and plan id. Never in localStorage, never in the server, never sent to any AI.
+- After saving, show a short result using plain rules (function evaluateWeekend(answers) in src/utils/skincareRules.ts, no AI):
+  - If (a) is "More irritated": "Pause your active for a few days and stick to cleanser, moisturizer and sunscreen. If it burns, swells or rashes, stop and see a doctor."
+  - If (b) is "Many": "Many new breakouts can need a dermatologist. If this lasts 2 more weeks, book one."
+  - If (c) is "Rarely": "Marks will not fade well without daily sunscreen. Try keeping it next to your toothbrush."
+  - If none of the above applies: "Nice, you're on track. Keep going." Do not praise or promise results.
+  - Always add "These are general guidelines, not medical advice."
+- Keep a simple, gentle streak: "3 weekends in a row". If she misses a week, show nothing negative, and just restart quietly. No guilt messages.
+- Store the weekly answers (the three choices, the date, the plan id) in localStorage with try/catch. Never store typed text or photos there.
+
+2. YOUR TIMELINE (photos, on-device only)
+- On the Check-ins screen add "My timeline". It shows the saved photos for each plan in date order, newest first, with the date under each. She can tap two photos to see them side by side with their dates, and drag a slider to compare. Label: "Your own photos. Look at them in the same light and the same angle."
+- Do not analyse, score, label or describe the photos in any way. The app never says "improved" or "worse" from a photo.
+- Add "Delete this photo", "Delete all my photos" and an info line: "Photos are stored only in this browser. Clearing browser data deletes them."
+
+3. REMINDERS WITHOUT NOTIFICATIONS
+- In the existing "Download reminders (.ics)" file, add a weekly all-day recurring event "No Cap weekend check" every Saturday for 12 weeks from the start date (use RRULE:FREQ=WEEKLY;COUNT=12;BYDAY=SA and the first Saturday on or after the start date). Keep the existing week 2, 6 and 12 events. Build all dates from local year, month and day, never toISOString(), DTEND the day after DTSTART, and escape commas, semicolons and backslashes as before.
+- Add a plain-text sentence beside the button: "Put it in your phone calendar so it reminds you."
+
+4. MAKE THE OLD CHECK-INS LIGHTER
+- At weeks 2, 6 and 12, prefill the existing check-in form from the last Weekend check: skin feel Calmer maps to irritation "no", More irritated maps to "mild stinging". Do not prefill other answers. She still has to answer all six questions, as now. Keep evaluateCheckIn exactly as it is.
+
+5. SAFETY AND LABELS
+- Do not say "improved", "cleared", "results", "dermatologist recommended" or "approved" anywhere in this feature.
+- Keep the small footer line: "Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist."
+
+Test these yourself and fix anything that fails: (a) the Weekend check card shows "ready" on Saturday and Sunday and "Last done N days ago" otherwise (test by faking the date in a helper, then remove the fake); (b) answering "More irritated" shows the pause advice and no product advice; (c) a photo is never in localStorage or in any network request, and is only in IndexedDB; (d) under 18 never sees the photo step; (e) the timeline shows two photos side by side with a slider and no text about improvement; (f) "Delete all my photos" empties IndexedDB; (g) the .ics file has a weekly Saturday RRULE for 12 weeks, DTEND the day after DTSTART, and opens in Google Calendar; (h) the old week 2, 6 and 12 check-ins still work exactly as before.

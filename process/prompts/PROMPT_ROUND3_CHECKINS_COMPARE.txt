@@ -1,0 +1,24 @@
+Add two features to No Cap, plus one small fix. Keep everything else exactly as it is. Do not add any new AI calls: all of this is plain TypeScript rules and on-device storage.
+
+0. Small fix first. In /api/analyze-skin, require ageRange to be exactly one of "under 18", "18 to 24", "25 to 34", "35 or older". Return 400 for anything else, including a missing value, before any image processing or Gemini call. In src/services/api.ts remove the default of '18 to 24'.
+
+1. PROGRESS CHECK-INS (weeks 2, 6 and 12)
+- On the results screen add a button "Start a check-in plan". It saves a plan on this device only (localStorage, with try/catch): id, start date, the user's concerns, the names of the recommended products, the first active and optional second active names, basics-only or full mode, and the due dates for week 2, week 6 and week 12. Never save a photo, a thumbnail, or any typed text.
+- Add a "Check-ins" screen reachable from the top navigation. It lists each plan with its next check-in as "Due now", "Due in N days" or "Overdue", and a "Delete this plan" button. Add a "Download reminders (.ics)" button that creates a calendar file with the three dates, so the reminders come from the user's own calendar. There are no push notifications, emails or accounts.
+- A check-in is a short form: (a) Overall, compared with the start: better, the same, worse. (b) Marks: lighter, the same, darker, I have none. (c) Breakouts: fewer, the same, more. (d) Since starting, any stinging, burning, swelling or rash? No / mild stinging / burning, swelling or rash. (e) Did you wear sunscreen: most days / some days / rarely. (f) Did you add a new active product on your own? No / yes.
+- Write a TypeScript function evaluateCheckIn(plan, week, answers) in src/utils/skincareRules.ts. No AI. Rules, in this order:
+  1. If (d) is burning, swelling or rash: show "Stop the new products and see a doctor" using the same dermatologist screen as the referral, and no further advice.
+  2. If (d) is mild stinging: "Pause your active for a week, use only your cleanser, moisturizer and sunscreen, then restart every third night."
+  3. If overall is worse or breakouts are more, and the week is 6 or 12: recommend seeing a dermatologist. At week 2: "Give it more time, and pause the active if it stings."
+  4. Week 2 with no irritation: "You can now start your first active (name) every other night."
+  5. Week 6, calm skin, and marks lighter or the same: if the plan has a second active, "You may add (name) now. Add it alone." Otherwise "Keep your routine as it is."
+  6. Week 12 with no change in marks or breakouts: recommend seeing a dermatologist, using the same wording as the "See a dermatologist if" list.
+  7. If (e) is rarely: "Marks will not fade well without daily sunscreen. Make it a daily habit." If (f) is yes: "Adding actives on your own makes irritation and longer-lasting marks more likely. Add one at a time."
+  Show every rule that applies, referral rules first. Add the line "These are general guidelines, not medical advice" and keep the "Not reviewed by a dermatologist yet" banner.
+
+2. COMPARE PRODUCTS AND WISHLIST
+- On every product card add a "Compare" checkbox and a "Save" heart. Compare allows 2 or 3 products of the same type (cleanser, moisturizer, sunscreen or treatment); if the user picks a different type, show "Compare products of the same type".
+- Add a Compare view (a drawer or modal) with one column per product and these rows: name, price in rupees with the MRP struck through, rating and number of ratings with the seller name, the "matched on" reasons, SPF for sunscreens, flags ("Check the label: may contain a second active", "Strong version"), the real review summary (praise and complaints, or "No review text collected yet"), the dermatologist review status ("Not reviewed by a dermatologist yet"), and a "View on Nykaa" link. Mark the lowest price and the highest rating with small labels "Lowest price" and "Highest rating". Never write "best" or "recommended" for any product, and do not add AI text.
+- Wishlist: "Save" stores only product ids on this device. Add a "Saved products" screen that reads current catalog data for each id, shows price, rating and the link, shows "Prices are a snapshot from the checked date and change often", and has a Remove button and a "Clear all" button.
+
+Test these yourself and fix anything that fails: (a) a plan saves and its next check-in shows the right due state, and deleting it removes it from localStorage; (b) a burning or rash answer shows the dermatologist screen with no product advice; (c) at week 12 with no change the dermatologist advice appears; (d) compare refuses mixed product types and caps at 3; (e) the wishlist survives a page reload and shows only catalog data; (f) nothing about photos or typed notes ever appears in localStorage; (g) the age check from step 0 returns 400 for a missing or invalid ageRange.

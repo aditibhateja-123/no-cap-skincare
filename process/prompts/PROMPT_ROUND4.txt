@@ -1,0 +1,15 @@
+Make these changes and change nothing else.
+
+1. In evaluateCheckIn, rule 6 (week 12): only count an item if the person actually has it. Ignore marks if they answered "I have none". Recommend a dermatologist only if nothing that applies to them improved: marks are not lighter (when they have marks) AND breakouts are not fewer AND overall is not better. Do not trigger when only one item stayed the same and another got better.
+
+2. Add a rule: if marks are "darker" at week 6 or 12, recommend seeing a dermatologist and add "Pause any new active and be strict with daily sunscreen." At week 2, "darker" shows "Give it more time, keep to the basics, and wear sunscreen daily."
+
+3. Fix the dates in "Start a check-in plan" and the .ics download so they are correct in any time zone, including India (UTC+5:30). Build all dates from local year, month and day values. Do not use toISOString() on a local date. For the all-day events, DTEND must be the day after DTSTART.
+
+4. In the .ics file, escape commas, semicolons and backslashes in SUMMARY and DESCRIPTION text as the format requires.
+
+5. Change how dermatologist review is shown.
+- Remove the "Not reviewed by a dermatologist yet" badge from every product card, the compare screen, the reviews modal, the saved products screen and the check-ins screen. Remove the large banner above the results about rules not being reviewed.
+- Add one small, quiet line at the bottom of the results screen and in the footer of the app: "Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist."
+- Add an optional field dermReview to each catalog product in src/data/catalog.json with the shape { reviewedBy: string, date: string }. Leave it out for every product now. If a product has dermReview, show a small positive badge "Reviewed by NAME" on its card and in the compare screen. If it does not have the field, show nothing at all.
+- Do not say, anywhere, that anything is dermatologist recommended, approved or tested, unless the product has dermReview.

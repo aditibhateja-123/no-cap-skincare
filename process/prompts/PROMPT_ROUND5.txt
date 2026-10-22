@@ -1,0 +1,11 @@
+Make these small fixes to the check-in feature and change nothing else.
+
+1. In the check-in form, add the option "I have no breakouts" to the breakouts question, so the options are: fewer, the same, more, I have no breakouts. Update the CheckInAnswers type to match.
+
+2. Do not pre-select any answer. The overall, marks, breakouts, irritation, sunscreen and new-active questions all start unanswered, and the "Get my check-in result" button stays disabled until every question has an answer.
+
+3. In evaluateCheckIn, rule 6 (week 12): work out which items apply to the person. Marks apply unless they answered "I have none". Breakouts apply unless they answered "I have no breakouts". Overall always applies. Recommend a dermatologist ("No noticeable change after 12 weeks of steady, consistent use") only if at least one item applies AND none of the applicable items improved (marks lighter, breakouts fewer, overall better). If neither marks nor breakouts apply and overall is "the same", do not refer: show "Your skin looks stable. Keep your routine as it is."
+
+4. In evaluateCheckIn, rule 5 (week 6): if the person answered marks "I have none", do not suggest a second active. Show "Keep your routine as it is." Keep the current behaviour for lighter or the same marks.
+
+Test these yourself and fix anything that fails: (a) at week 12, marks "I have none" + breakouts "I have no breakouts" + overall "the same" shows "Your skin looks stable" and no dermatologist advice; (b) at week 12, marks "the same" + breakouts "fewer" does not refer; (c) at week 12, marks "the same" + breakouts "the same" + overall "the same" refers; (d) the result button stays disabled until all six questions are answered; (e) burning, swelling or rash still stops all other advice.

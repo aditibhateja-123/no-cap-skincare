@@ -1,9 +1,9 @@
 import React from 'react';
-import { Sparkles, History, BookOpen, Camera, Calendar, Heart, Layers, Sun } from 'lucide-react';
+import { Sparkles, History, BookOpen, Camera, Calendar, Heart, Layers, Sun, Tag } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'finder' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide';
-  setActiveTab: (tab: 'finder' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide') => void;
+  activeTab: 'finder' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide';
+  setActiveTab: (tab: 'finder' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide') => void;
   savedScansCount: number;
   plansCount: number;
   savedWishlistCount: number;
@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Navigation Controls */}
-          <nav className="flex items-center gap-1 sm:gap-2">
+          <nav className="flex items-center gap-1 sm:gap-2 min-w-0 overflow-x-auto [&>button]:shrink-0 [&>button]:whitespace-nowrap">
             <button
               onClick={() => setActiveTab('finder')}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
@@ -71,6 +71,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Camera className="w-4 h-4" />
               <span>Skin Scanner</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('label')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                activeTab === 'label'
+                  ? 'bg-stone-900 text-white shadow-xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+              }`}
+            >
+              <Tag className="w-4 h-4" />
+              <span>Label guide</span>
             </button>
 
             <button

@@ -26,7 +26,7 @@ const WISHLIST_STORAGE_KEY = 'nocap_wishlist_ids_v1';
 const SHELF_STORAGE_KEY = 'nocap_my_shelf_v1';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'finder' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide'>('finder');
+  const [activeTab, setActiveTab] = useState<'finder' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide'>('finder');
   const [userAnswers, setUserAnswers] = useState<UserQuizAnswers | null>(null);
   const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult | null>(null);
   const [seenScan, setSeenScan] = useState<PhotoAnalysisResult | null>(null);
@@ -262,6 +262,8 @@ export default function App() {
             onToggleWishlist={handleToggleWishlist}
             onOpenQuiz={() => setActiveTab('scanner')}
           />
+        ) : activeTab === 'label' ? (
+          <LabelGuideView />
         ) : activeTab === 'shelf' ? (
           <MyShelfView
             shelf={shelf}
@@ -638,6 +640,31 @@ export const SunscreenFinderView: React.FC<SunscreenFinderViewProps> = ({
                       ))}
                     </ul>
 
+                    {product.communityNotes && product.communityNotes.length > 0 && (
+                      <div className="p-3 rounded-2xl bg-violet-50/70 border border-violet-200 text-[11px] text-stone-700 space-y-1">
+                        <span className="font-bold text-violet-900 block text-[10px] uppercase tracking-wider">
+                          What Reddit users said
+                        </span>
+                        {product.communityNotes.map((c, idx) => (
+                          <p key={idx}>
+                            {c.note}
+                            {c.skinTone ? ` (skin tone as they described it: ${c.skinTone})` : ''}{' '}
+                            <a
+                              href={c.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline underline-offset-2 font-semibold hover:text-stone-900"
+                            >
+                              Read the comment
+                            </a>
+                          </p>
+                        ))}
+                        <span className="block text-[10px] text-stone-500">
+                          Paraphrased from public comments on r/IndianSkincareAddicts. A few people's opinions, not a study.
+                        </span>
+                      </div>
+                    )}
+
                     {flagLabels.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {flagLabels.map((f) => (
@@ -724,3 +751,69 @@ export const SunscreenFinderView: React.FC<SunscreenFinderViewProps> = ({
     </div>
   );
 };
+
+// ---------- Label guide: a fixed, plain-language cheat sheet ----------
+
+const LABEL_GUIDE_SECTIONS: { title: string; points: string[] }[] = [
+  {
+    title: 'Sunscreen for oily, acne-prone skin',
+    points: [
+      'Look for SPF 30 or higher. SPF 50 gives a little more, but the real difference is wearing it every day.',
+      'PA+++ or PA++++ means better UVA protection. UVA is the part that keeps dark marks from fading.',
+      'Words like "gel", "oil-free" or "matte" usually mean a lighter feel on oily skin. They are labels, not guarantees.',
+      'On deeper skin tones, look for "no white cast". Mineral filters (zinc oxide, titanium dioxide) can leave a grey or white film.',
+      'Use about two finger lengths for the face and neck, and reapply every 2 to 3 hours if you are outdoors.',
+    ],
+  },
+  {
+    title: 'Actives on the label',
+    points: [
+      'Use one active at a time. If a product lists a percentage, like "10% niacinamide", higher is not always better for a beginner.',
+      'Azelaic acid, niacinamide and salicylic acid are the actives our picks start with. Retinoids, strong acids and peels are not recommended here.',
+      'Do a patch test first: a small dot behind the ear or on the jaw for 2 to 3 days.',
+      'If it stings, burns, swells or gives you a rash, stop using it and see a doctor.',
+    ],
+  },
+  {
+    title: 'Things to be careful about',
+    points: [
+      'Heavily fragranced products, if your skin stings easily.',
+      'Physical scrubs and harsh peels on active pimples.',
+      'Products that promise marks gone in days. Marks usually fade over months.',
+      '"Dermatologist recommended" on a pack is a marketing claim. It does not tell you if it suits your skin.',
+    ],
+  },
+  {
+    title: 'How to read a product page',
+    points: [
+      'Check the rating and how many people rated it. 4.0 stars from 20 ratings tells you less than 4.3 from 20,000.',
+      'Read the 2 and 3 star reviews first. They usually say what goes wrong.',
+      'Look at the date and the seller. Prices and stock change often.',
+      'Check the period-after-opening symbol (an open jar with a number, like 6M or 12M) and throw the product away after that time.',
+    ],
+  },
+];
+
+const LabelGuideView: React.FC = () => (
+  <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-6">
+    <div className="text-center">
+      <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900">What to look for on the label</h1>
+      <p className="text-sm text-stone-600 mt-2">
+        A quick cheat sheet you can use on any product, including ones that are not in our list.
+      </p>
+    </div>
+    {LABEL_GUIDE_SECTIONS.map((section) => (
+      <section key={section.title} className="bg-white border border-[#e7ded4] rounded-2xl p-5 sm:p-6">
+        <h2 className="font-serif text-lg font-bold text-stone-900 mb-3">{section.title}</h2>
+        <ul className="list-disc pl-5 space-y-1.5 text-sm text-stone-700">
+          {section.points.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+      </section>
+    ))}
+    <p className="text-xs text-stone-500 text-center">
+      Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist.
+    </p>
+  </div>
+);

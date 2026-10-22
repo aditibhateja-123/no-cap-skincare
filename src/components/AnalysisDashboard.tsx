@@ -32,6 +32,8 @@ import {
   addDaysLocal,
 } from '../utils/skincareRules';
 import { CompareModal } from './CompareModal';
+import type { CatalogProduct as AltCatalogProduct } from '../types';
+import altCatalogData from '../data/catalog.json';
 
 interface AnalysisDashboardProps {
   answers: UserQuizAnswers;
@@ -335,6 +337,8 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
       {/* ================= PRODUCT CARDS SECTIONS ================= */}
       <div className="space-y-8">
+        <RoutineCostCard groups={[rankedCleansers, rankedMoisturizers, rankedSunscreens, rankedTreatments]} />
+
         {/* Cleansers */}
         {rankedCleansers.length > 0 && (
           <ProductGroupSection
@@ -656,6 +660,31 @@ const ProductGroupSection: React.FC<ProductGroupSectionProps> = ({
                     ))}
                   </ul>
                 </div>
+                {p.communityNotes && p.communityNotes.length > 0 && (
+                  <div className="p-3 rounded-2xl bg-violet-50/70 border border-violet-200 text-[11px] text-stone-700 space-y-1">
+                    <span className="font-bold text-violet-900 block text-[10px] uppercase tracking-wider">
+                      What Reddit users said
+                    </span>
+                    {p.communityNotes.map((c, idx) => (
+                      <p key={idx}>
+                        {c.note}
+                        {c.skinTone ? ` (skin tone as they described it: ${c.skinTone})` : ''}{' '}
+                        <a
+                          href={c.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline underline-offset-2 font-semibold hover:text-stone-900"
+                        >
+                          Read the comment
+                        </a>
+                      </p>
+                    ))}
+                    <span className="block text-[10px] text-stone-500">
+                      Paraphrased from public comments on r/IndianSkincareAddicts. A few people's opinions, not a study.
+                    </span>
+                  </div>
+                )}
+                <CheaperAlternative product={p} />
               </div>
 
               {/* Bottom Actions */}
@@ -927,6 +956,176 @@ export const FaceScanReport: React.FC<FaceScanReportProps> = ({ photoResult, isD
       <p className="text-[11px] text-stone-500">
         Cameras can misread marks, especially in poor light or on deeper skin tones. Products below use only the
         findings you kept on the photo step.
+      </p>
+    </div>
+  );
+};
+
+// ---------- Routine cost, sharing, 6-week reminder and cheaper alternatives ----------
+
+const APP_SHARE_URL = 'https://ai.studio/apps/b127c0ca-a515-40e2-950e-a99717f4983c';
+
+function findCheaperAlternative(p: RankedProduct): AltCatalogProduct | null {
+  const tagKeys = ['oily', 'dry', 'sensitive', 'acne', 'noWhiteCast'] as const;
+  const pool = (altCatalogData as AltCatalogProduct[]).filter(
+    (c) =>
+      c.id !== p.id &&
+      c.role === p.role &&
+      c.activeKey === p.activeKey &&
+      c.price < p.price &&
+      c.rating >= 4.0 &&
+      c.ratingCount >= 500 &&
+      (p.role !== 'sunscreen' || (c.spf !== null && c.spf >= 30)) &&
+      (!c.flags.includes('high_strength') || p.flags.includes('high_strength')) &&
+      (!p.tags.noWhiteCast || c.tags.noWhiteCast)
+  );
+  if (pool.length === 0) return null;
+  const overlap = (c: AltCatalogProduct) => tagKeys.filter((k) => p.tags[k] && c.tags[k]).length;
+  pool.sort((a, b) => overlap(b) - overlap(a) || b.rating - a.rating || a.price - b.price);
+  const pick = pool[0];
+  // Only suggest it when it is meaningfully cheaper.
+  return p.price - pick.price >= 30 ? pick : null;
+}
+
+const CheaperAlternative: React.FC<{ product: RankedProduct }> = ({ product }) => {
+  const alt = findCheaperAlternative(product);
+  if (!alt) return null;
+  return (
+    <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-[11px] text-stone-700 space-y-0.5">
+      <span className="font-bold text-emerald-900 block text-[10px] uppercase tracking-wider">
+        Similar and cheaper
+      </span>
+      <a
+        href={alt.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-semibold underline underline-offset-2 hover:text-stone-900"
+      >
+        {alt.name}
+      </a>
+      <span className="block">
+        ₹{alt.price}, which is ₹{product.price - alt.price} less. Rated {alt.rating} from{' '}
+        {alt.ratingCount.toLocaleString('en-IN')} ratings. Same type, but ingredients are not compared, so read
+        the label.
+      </span>
+    </div>
+  );
+};
+
+function buildShareText(groups: RankedProduct[][]): string {
+  const tops = groups.filter((g) => g.length > 0).map((g) => g[0]);
+  const total = tops.reduce((sum, p) => sum + p.price, 0);
+  const lines = tops.map((p) => `• ${p.name} (₹${p.price})`);
+  return (
+    'My No Cap skincare picks:\n' +
+    lines.join('\n') +
+    `\n\nTotal: ₹${total.toLocaleString('en-IN')}\nGuidance, not medical advice. Find yours: ${APP_SHARE_URL}`
+  );
+}
+
+function downloadSixWeekReminder() {
+  const start = addDaysLocal(new Date(), 42);
+  const end = addDaysLocal(start, 1);
+  const ymd = (d: Date) => formatLocalDateToYMD(d).replace(/-/g, '');
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//No Cap//Six week reminder//EN',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:nocap-6week-${stamp}@nocap`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${ymd(start)}`,
+    `DTEND;VALUE=DATE:${ymd(end)}`,
+    'SUMMARY:No Cap\\, 6 week skin check',
+    'DESCRIPTION:Look at your skin in daylight and compare it with how it looked at the start. Marks usually fade over months\\, so be patient. Keep to one active at a time.',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ];
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'no-cap-6-week-check.ics';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const RoutineCostCard: React.FC<{ groups: RankedProduct[][] }> = ({ groups }) => {
+  const [copied, setCopied] = useState(false);
+  const filled = groups.filter((g) => g.length > 0);
+  if (filled.length === 0) return null;
+
+  const topTotal = filled.reduce((sum, g) => sum + g[0].price, 0);
+  const cheapestTotal = filled.reduce((sum, g) => sum + Math.min(...g.map((p) => p.price)), 0);
+  const saving = topTotal - cheapestTotal;
+  const shareText = buildShareText(groups);
+
+  const shareOnWhatsApp = () => {
+    window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank', 'noopener,noreferrer');
+  };
+
+  const copyText = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <div className="p-5 sm:p-6 rounded-3xl bg-white border border-stone-200 space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="font-serif text-lg font-bold text-stone-900">Your routine cost</h3>
+          <p className="text-[11px] text-stone-500">
+            Based on the first pick for each type. Prices are a snapshot and change often.
+          </p>
+        </div>
+        <div className="text-right">
+          <span className="block text-2xl font-bold font-mono text-stone-900">
+            ₹{topTotal.toLocaleString('en-IN')}
+          </span>
+          {saving > 0 && (
+            <span className="block text-xs text-emerald-800 font-semibold">
+              Cheapest mix from your picks: ₹{cheapestTotal.toLocaleString('en-IN')} (save ₹
+              {saving.toLocaleString('en-IN')})
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-stone-100">
+        <button
+          type="button"
+          onClick={shareOnWhatsApp}
+          className="px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer"
+        >
+          Share my picks on WhatsApp
+        </button>
+        <button
+          type="button"
+          onClick={copyText}
+          className="px-4 py-2 text-xs font-semibold rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-800 border border-stone-300 transition-colors cursor-pointer"
+        >
+          {copied ? 'Copied' : 'Copy as text'}
+        </button>
+        <button
+          type="button"
+          onClick={downloadSixWeekReminder}
+          className="px-4 py-2 text-xs font-semibold rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-800 border border-stone-300 transition-colors cursor-pointer"
+        >
+          Remind me in 6 weeks
+        </button>
+      </div>
+      <p className="text-[11px] text-stone-500">
+        Sharing sends only product names and prices. Your photo and answers are never shared. The reminder is a
+        calendar file from your own device.
       </p>
     </div>
   );

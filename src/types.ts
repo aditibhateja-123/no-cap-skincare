@@ -146,6 +146,14 @@ export interface CatalogProduct {
   checkedAt: string;
   reviews: CatalogReviews | null;
   image?: string;
+  communityNotes?: {
+    note: string;
+    skinTone: string | null;
+    source: string;
+    url: string;
+    moreUrls?: string[];
+    date: string;
+  }[];
   dermReview?: {
     reviewedBy: string;
     date: string;

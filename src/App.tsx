@@ -342,7 +342,7 @@ export default function App() {
             <span>· Honest skincare picks</span>
           </div>
           <p className="text-center sm:text-left text-[11px] text-stone-500">
-            Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist.
+            Guidance, not medical advice.
           </p>
           <div className="flex items-center gap-4 text-stone-500 text-center sm:text-right">
             <span>Prices are a snapshot from Nykaa. These links earn us nothing.</span>
@@ -735,7 +735,7 @@ export const SunscreenFinderView: React.FC<SunscreenFinderViewProps> = ({
             </p>
             <p>Prices are a snapshot from the checked date and change often.</p>
             <p>Use about two finger lengths for face and neck, and reapply every 2 to 3 hours if you are outdoors.</p>
-            <p>Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist.</p>
+            <p>Guidance, not medical advice.</p>
           </div>
         </section>
       )}
@@ -813,7 +813,7 @@ const LabelGuideView: React.FC = () => (
       </section>
     ))}
     <p className="text-xs text-stone-500 text-center">
-      Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist.
+      Guidance, not medical advice.
     </p>
   </div>
 );

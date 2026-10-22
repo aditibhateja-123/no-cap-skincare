@@ -517,7 +517,7 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
       {/* Small, quiet line at the bottom of the results screen */}
       <div className="text-center text-xs text-stone-500 py-3 border-t border-stone-200">
-        Guidance, not medical advice. Our rules and picks have not yet been reviewed by a dermatologist.
+        Guidance, not medical advice.
       </div>
     </div>
   );

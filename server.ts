@@ -450,7 +450,9 @@ STRICT RULES:
 // Setup dev server with Vite or serve static files in production
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
+    // Not a literal import, so serverless bundles do not pull in Vite.
+    const viteModule = 'vite';
+    const { createServer: createViteServer } = await import(viteModule);
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -468,4 +470,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// On Vercel this app runs as a serverless function (see api/index.ts), so it must not listen on a port.
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;

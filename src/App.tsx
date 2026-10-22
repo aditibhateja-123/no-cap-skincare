@@ -282,7 +282,9 @@ export default function App() {
       : activeTab === 'label'
       ? { text: 'Now put it to use: find a sunscreen that fits you.', label: 'Open the sunscreen finder', go: () => setActiveTab('finder') }
       : activeTab === 'shelf'
-      ? { text: 'Set a reminder to check your skin in 6 weeks.', label: 'Go to check-ins', go: () => setActiveTab('checkins') }
+      ? (userAnswers && checkInPlans.length === 0
+          ? { text: 'Start a check-in plan from your results to get reminders at weeks 2, 6 and 12.', label: 'Open my results', go: () => { if (photoResult) setSeenScan(photoResult); setActiveTab('scanner'); } }
+          : { text: 'Check how your skin is doing at weeks 2, 6 and 12.', label: 'Go to check-ins', go: () => setActiveTab('checkins') })
       : activeTab === 'checkins'
       ? { text: 'Learn how to read a product label before you buy.', label: 'Open the label guide', go: () => setActiveTab('label') }
       : activeTab === 'saved'
@@ -385,6 +387,11 @@ export default function App() {
             onSaveCompletedCheckIn={handleSaveCompletedCheckIn}
             onNewScan={handleNewScan}
             userAnswers={userAnswers}
+            hasResults={Boolean(userAnswers)}
+            onOpenResults={() => {
+              if (photoResult) setSeenScan(photoResult);
+              setActiveTab('scanner');
+            }}
           />
         ) : activeTab === 'saved' ? (
           <SavedProductsView

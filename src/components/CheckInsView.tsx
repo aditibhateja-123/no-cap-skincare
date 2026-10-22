@@ -39,6 +39,8 @@ interface CheckInsViewProps {
   onDeletePlan: (id: string) => void;
   onSaveCompletedCheckIn: (planId: string, checkIn: CompletedCheckIn) => void;
   onNewScan: () => void;
+  hasResults?: boolean;
+  onOpenResults?: () => void;
   userAnswers?: UserQuizAnswers | null;
 }
 
@@ -198,6 +200,8 @@ export const CheckInsView: React.FC<CheckInsViewProps> = ({
   onDeletePlan,
   onSaveCompletedCheckIn,
   onNewScan,
+  hasResults,
+  onOpenResults,
   userAnswers,
 }) => {
   const [activePlanForCheckIn, setActivePlanForCheckIn] = useState<CheckInPlan | null>(null);
@@ -375,15 +379,24 @@ export const CheckInsView: React.FC<CheckInsViewProps> = ({
               No Active Check-in Plans
             </h3>
             <p className="text-xs text-stone-500 leading-relaxed">
-              When you complete the quiz and view your product matches, click{' '}
-              <strong className="text-stone-700">"Start a check-in plan"</strong> to track your progress at weeks 2, 6, and 12.
+              {hasResults ? (
+                <>
+                  Your results are ready. Open them and press{' '}
+                  <strong className="text-stone-700">"Start a check-in plan"</strong> near the routine. It sets reminders for weeks 2, 6 and 12.
+                </>
+              ) : (
+                <>
+                  A check-in plan starts from your results. Take the quiz first, then press{' '}
+                  <strong className="text-stone-700">"Start a check-in plan"</strong> to track weeks 2, 6 and 12.
+                </>
+              )}
             </p>
           </div>
           <button
-            onClick={onNewScan}
+            onClick={hasResults && onOpenResults ? onOpenResults : onNewScan}
             className="px-6 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
           >
-            Start Quiz
+            {hasResults ? 'Open my results' : 'Take the quiz first'}
           </button>
         </div>
       ) : (

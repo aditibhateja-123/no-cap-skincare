@@ -531,7 +531,7 @@ export const MyShelfView: React.FC<MyShelfViewProps> = ({
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Morning Routine Card */}
-                        <div className="p-4 rounded-xl border border-amber-200/70 bg-[#faf8f5] space-y-3">
+                        <div className="p-4 rounded-xl border border-amber-200/70 bg-[#faf8f5] space-y-3 min-w-0">
                           <div className="flex items-center gap-2 pb-2 border-b border-amber-200/60">
                             <Sun className="w-4 h-4 text-amber-600" />
                             <h4 className="text-xs font-bold uppercase tracking-wider text-stone-900">
@@ -550,7 +550,7 @@ export const MyShelfView: React.FC<MyShelfViewProps> = ({
                                   <span className="w-4 h-4 rounded-full bg-amber-200 text-stone-900 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
                                     {idx + 1}
                                   </span>
-                                  <span className="font-medium leading-relaxed">{step}</span>
+                                  <span className="font-medium leading-relaxed break-words min-w-0">{step}</span>
                                 </li>
                               ))}
                             </ol>
@@ -558,7 +558,7 @@ export const MyShelfView: React.FC<MyShelfViewProps> = ({
                         </div>
 
                         {/* Night Routine Card */}
-                        <div className="p-4 rounded-xl border border-indigo-200/70 bg-[#faf8f5] space-y-3">
+                        <div className="p-4 rounded-xl border border-indigo-200/70 bg-[#faf8f5] space-y-3 min-w-0">
                           <div className="flex items-center gap-2 pb-2 border-b border-indigo-200/60">
                             <Moon className="w-4 h-4 text-indigo-600" />
                             <h4 className="text-xs font-bold uppercase tracking-wider text-stone-900">
@@ -572,7 +572,7 @@ export const MyShelfView: React.FC<MyShelfViewProps> = ({
                                 <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-900 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
                                   1
                                 </span>
-                                <span className="font-medium leading-relaxed">
+                                <span className="font-medium leading-relaxed break-words min-w-0">
                                   {evaluation.routine.night.cleanser}
                                 </span>
                               </div>
@@ -587,12 +587,12 @@ export const MyShelfView: React.FC<MyShelfViewProps> = ({
                                 {evaluation.routine.night.treatmentSchedule.map((sched, idx) => (
                                   <div
                                     key={idx}
-                                    className="p-2 rounded-lg bg-white border border-stone-200 text-[11px] flex items-start justify-between gap-2"
+                                    className="p-2 rounded-lg bg-white border border-stone-200 text-[11px] flex flex-col gap-0.5 min-w-0"
                                   >
-                                    <span className="font-semibold text-stone-700 shrink-0">
+                                    <span className="font-semibold text-stone-700">
                                       {sched.dayPattern}:
                                     </span>
-                                    <span className="text-stone-900 font-medium text-right">
+                                    <span className="text-stone-900 font-medium break-words min-w-0">
                                       {sched.activeName}
                                     </span>
                                   </div>
@@ -605,7 +605,7 @@ export const MyShelfView: React.FC<MyShelfViewProps> = ({
                                 <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-900 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
                                   3
                                 </span>
-                                <span className="font-medium leading-relaxed">
+                                <span className="font-medium leading-relaxed break-words min-w-0">
                                   {evaluation.routine.night.moisturizer}
                                 </span>
                               </div>

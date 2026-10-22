@@ -782,13 +782,51 @@ export const SunscreenFinderView: React.FC<SunscreenFinderViewProps> = ({
 
 const LABEL_GUIDE_SECTIONS: { title: string; points: string[] }[] = [
   {
-    title: 'Sunscreen for oily, acne-prone skin',
+    title: 'Sunscreen: for every skin type',
     points: [
       'Look for SPF 30 or higher. SPF 50 gives a little more, but the real difference is wearing it every day.',
       'PA+++ or PA++++ means stronger UVA protection. Sun exposure can keep dark marks dark, which is why a daily sunscreen matters.',
-      'Words like "gel", "oil-free" or "matte" usually mean a lighter feel on oily skin. They are labels, not guarantees.',
-      'On deeper skin tones, look for "no white cast". Mineral filters (zinc oxide, titanium dioxide) can leave a grey or white film.',
       'Use about two finger lengths for the face and neck, and reapply every 2 to 3 hours if you are outdoors.',
+      'A sunscreen you enjoy wearing is the one you will use. Try a small size first if you can.',
+    ],
+  },
+  {
+    title: 'Sunscreen for oily or acne-prone skin',
+    points: [
+      'Words like "gel", "oil-free", "matte" and "non-comedogenic" usually mean a lighter feel. They are labels, not guarantees.',
+      'If a sunscreen feels heavy or you break out, try a lighter gel or fluid and see if it helps. Patch test first.',
+    ],
+  },
+  {
+    title: 'Sunscreen for dry skin',
+    points: [
+      'Creams and lotions that say "hydrating" or "moisturizing" usually feel more comfortable than matte or "oil control" ones, which can feel tight on dry skin.',
+      'Moisturizing sunscreens often list ingredients like glycerin, hyaluronic acid or ceramides. Seeing them on the label is a good sign for comfort, not a guarantee.',
+    ],
+  },
+  {
+    title: 'Sunscreen for sensitive skin',
+    points: [
+      'Choose "fragrance-free" where you can, because fragrance and a lot of alcohol near the top of the ingredient list can sting some people.',
+      'Mineral sunscreens (zinc oxide, titanium dioxide) are often gentler, but they can leave a white or grey film.',
+      'Patch test first: a small dot behind the ear or on the jaw for 2 to 3 days.',
+    ],
+  },
+  {
+    title: 'Sunscreen for deeper skin tones',
+    points: [
+      'Look for "no white cast" or a tinted formula. Mineral filters are the most likely to leave a grey or white film.',
+      'Gel and fluid sunscreens with newer chemical filters usually blend in more easily, but this varies a lot by product, so a small size or sample helps.',
+      'Daily sunscreen matters even more if you have dark marks, because sun can make them darker and slower to fade.',
+    ],
+  },
+  {
+    title: 'Moisturizer and cleanser by skin type',
+    points: [
+      'Oily or combination skin: a gel or lightweight lotion moisturizer, and a gel cleanser. You still need a moisturizer.',
+      'Dry skin: a cream or balm moisturizer, often with ceramides or glycerin, and a gentle low-foam cleanser.',
+      'Sensitive skin: fewer ingredients, "fragrance-free", and a gentle cleanser. Add one new product at a time.',
+      'Avoid scrubs with gritty particles on any skin type, especially on active pimples.',
     ],
   },
   {
@@ -827,7 +865,7 @@ const LabelGuideView: React.FC = () => (
     <div className="text-center">
       <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900">What to look for on the label</h1>
       <p className="text-sm text-stone-600 mt-2">
-        A quick cheat sheet you can use on any product, including ones that are not in our list.
+        A quick cheat sheet for any skin type, and for any product, including ones that are not in our list.
       </p>
     </div>
     {LABEL_GUIDE_SECTIONS.map((section) => (

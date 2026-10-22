@@ -426,6 +426,8 @@ STRICT RULES:
       },
       config: {
         temperature: 0.1,
+        // Describing a photo does not need a long reasoning step, so turn it off for speed.
+        thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: 'application/json',
         responseSchema: photoAnalysisSchema,
       },

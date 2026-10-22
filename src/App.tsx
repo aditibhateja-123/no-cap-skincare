@@ -19,8 +19,7 @@ import {
   ShelfState,
 } from './types';
 import { Sparkles, Camera as HomeCamera, Sun as HomeSun, Target as HomeTarget } from 'lucide-react';
-import { FeedbackCard, feedbackEnabled } from './components/FeedbackCard';
-import { FEEDBACK } from './feedbackConfig';
+import { DoneView } from './components/DoneView';
 import { ShareResultsCard } from './components/ShareResultsCard';
 import { AdminView } from './components/AdminView';
 import { track } from './analytics';
@@ -44,7 +43,7 @@ function loadSession(): any {
 
 export default function App() {
   const [restored] = useState(loadSession);
-  const [activeTab, setActiveTab] = useState<'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide'>(restored?.tab ?? 'home');
+  const [activeTab, setActiveTab] = useState<'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide' | 'done'>(restored?.tab ?? 'home');
   const [userAnswers, setUserAnswers] = useState<UserQuizAnswers | null>(restored?.answers ?? null);
   const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult | null>(restored?.photo ?? null);
   const [seenScan, setSeenScan] = useState<PhotoAnalysisResult | null>(restored?.seen ? restored?.photo ?? null : null);
@@ -287,7 +286,10 @@ export default function App() {
   }, [onResults]);
 
   const nextStep: { text: string; label: string; go: () => void } | null =
-    activeTab === 'finder'
+    activeTab === 'done' || activeTab === 'home'
+      ? null
+      :
+      activeTab === 'finder'
       ? { text: 'Want a full routine, not just sunscreen? Answer a short quiz.', label: 'Start the quiz', go: () => setActiveTab('scanner') }
       : activeTab === 'concern'
       ? null
@@ -298,7 +300,7 @@ export default function App() {
           ? { text: 'Start a check-in plan from your results to get reminders at weeks 2, 6 and 12.', label: 'Open my results', go: () => { if (photoResult) setSeenScan(photoResult); setActiveTab('scanner'); } }
           : { text: 'Check how your skin is doing at weeks 2, 6 and 12.', label: 'Go to check-ins', go: () => setActiveTab('checkins') })
       : activeTab === 'checkins'
-      ? { text: 'Learn how to read a product label before you buy.', label: 'Open the label guide', go: () => setActiveTab('label') }
+      ? { text: 'That is the whole journey. Finish up and tell us how it went.', label: 'Finish', go: () => setActiveTab('done') }
       : activeTab === 'saved'
       ? { text: 'Add what you own to your morning and night routine.', label: 'Go to My shelf', go: () => setActiveTab('shelf') }
       : activeTab === 'history'
@@ -336,7 +338,15 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 pb-24 md:pb-16">
-        {activeTab === 'home' ? (
+        {activeTab === 'done' ? (
+          <DoneView
+            hasResults={Boolean(userAnswers)}
+            hasPlan={checkInPlans.length > 0}
+            onOpenCheckins={() => setActiveTab('checkins')}
+            onStartOver={handleNewScan}
+            onHome={() => setActiveTab('home')}
+          />
+        ) : activeTab === 'home' ? (
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-8">
             <div className="text-center space-y-2">
               <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900">What do you need today?</h1>
@@ -460,7 +470,6 @@ export default function App() {
       </main>
 
       {onResults && userAnswers && <ShareResultsCard answers={userAnswers} photoResult={photoResult} />}
-      {(onResults || activeTab === 'shelf' || activeTab === 'checkins') && <FeedbackCard />}
 
       {nextStep && (
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 pb-8">
@@ -469,12 +478,19 @@ export default function App() {
               <div className="text-[11px] uppercase tracking-wider font-bold text-stone-500">Next step</div>
               <p className="text-sm text-stone-700 mt-0.5">{nextStep.text}</p>
             </div>
-            <button
-              onClick={nextStep.go}
-              className="shrink-0 px-6 py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl cursor-pointer"
-            >
-              {nextStep.label} →
-            </button>
+            <div className="shrink-0 flex flex-col items-stretch sm:items-end gap-2">
+              <button
+                onClick={nextStep.go}
+                className="px-6 py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl cursor-pointer"
+              >
+                {nextStep.label} →
+              </button>
+              {nextStep.label !== 'Finish' && (
+                <button onClick={() => setActiveTab('done')} className="text-xs text-stone-600 underline cursor-pointer">
+                  I’m done, finish up
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -493,11 +509,6 @@ export default function App() {
           <div className="flex items-center gap-4 text-stone-500 text-center sm:text-right">
             <span>Prices are a snapshot from Nykaa. These links earn us nothing.</span>
             <span>We count anonymous steps, never your answers.</span>
-            {feedbackEnabled && FEEDBACK.viewUrl && (
-              <a href={FEEDBACK.viewUrl} target="_blank" rel="noreferrer" className="text-stone-700 hover:text-stone-900 font-medium underline">
-                Give feedback
-              </a>
-            )}
             <button
               onClick={() => setIsToneGuideOpen(true)}
               className="text-stone-700 hover:text-stone-900 font-medium underline cursor-pointer"

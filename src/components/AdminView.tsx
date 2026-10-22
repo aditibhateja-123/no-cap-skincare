@@ -16,6 +16,7 @@ export const AdminView: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const [events, setEvents] = useState<Record<string, Record<string, number>>>({});
+  const [feedback, setFeedback] = useState<{ at: string; rating: number; worked: string; confused: string }[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -31,6 +32,12 @@ export const AdminView: React.FC = () => {
           if (e.ok) setEvents((await e.json()).counts || {});
         } catch {
           /* funnel is optional */
+        }
+        try {
+          const f = await fetch('/api/admin/feedback', { headers: { 'x-admin-password': password } });
+          if (f.ok) setFeedback((await f.json()).feedback || []);
+        } catch {
+          /* feedback is optional */
         }
       }
     } catch {
@@ -58,6 +65,7 @@ export const AdminView: React.FC = () => {
     ['results_viewed', 'Saw their results'],
     ['checkin_started', 'Started a check-in plan'],
     ['share_clicked', 'Tapped Share'],
+    ['finished', 'Reached the end screen'],
   ];
   const stepTotal = (name: string, days?: number) => {
     const cutoff = days ? new Date(Date.now() - days * 86400000).toISOString().slice(0, 10) : '';
@@ -121,6 +129,24 @@ export const AdminView: React.FC = () => {
           </tbody>
         </table>
         {Object.keys(events).length === 0 && <p className="text-xs text-stone-500 mt-2">No steps counted yet. They appear as people use the app.</p>}
+      </div>
+      <div className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-bold text-stone-900">How was your experience? ({feedback.length})</h2>
+          {feedback.length > 0 && (
+            <span className="text-sm font-bold">
+              Average {(feedback.reduce((a, f) => a + f.rating, 0) / feedback.length).toFixed(1)} / 5
+            </span>
+          )}
+        </div>
+        {feedback.length === 0 && <p className="text-xs text-stone-500">No feedback yet.</p>}
+        {feedback.map((f, i) => (
+          <div key={i} className="border-t border-stone-100 pt-2 text-sm">
+            <div className="text-xs text-stone-500">{new Date(f.at).toLocaleString('en-IN')} · rating {f.rating}/5</div>
+            {f.worked && <p><b>Worked:</b> {f.worked}</p>}
+            {f.confused && <p><b>Confusing or missing:</b> {f.confused}</p>}
+          </div>
+        ))}
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {['ageRange', 'skinTone', 'concerns', 'budget'].map((k) => (

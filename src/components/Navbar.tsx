@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Sparkles, History, BookOpen, Camera, Calendar, Heart, Layers, Sun, Tag, Target, MoreHorizontal, X } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide';
-  setActiveTab: (tab: 'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide') => void;
+  activeTab: 'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide' | 'done';
+  setActiveTab: (tab: 'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide' | 'done') => void;
   savedScansCount: number;
   plansCount: number;
   savedWishlistCount: number;

@@ -9,7 +9,8 @@ export type StepName =
   | 'scan_done'
   | 'results_viewed'
   | 'checkin_started'
-  | 'share_clicked';
+  | 'share_clicked'
+  | 'finished';
 
 export function track(name: StepName) {
   try {

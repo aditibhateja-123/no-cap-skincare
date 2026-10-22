@@ -619,7 +619,7 @@ app.get('/api/admin/shares', async (req, res) => {
 // ---- Anonymous step counts (name and day only, no ids, answers or photos) ----
 const EVENT_NAMES = new Set([
   'open', 'choose_routine', 'choose_sunscreen', 'choose_concern',
-  'quiz_done', 'scan_done', 'results_viewed', 'checkin_started', 'share_clicked',
+  'quiz_done', 'scan_done', 'results_viewed', 'checkin_started', 'share_clicked', 'finished',
 ]);
 const EVENTS_KEY = 'nocap:events';
 const eventHistory = new Map<string, number[]>();
@@ -659,6 +659,41 @@ app.get('/api/admin/events', async (req, res) => {
       (counts[day] ||= {})[name] = Number(flat[i + 1]);
     }
     res.json({ counts });
+  } catch {
+    res.status(500).json({ error: 'Could not read.' });
+  }
+});
+
+// ---- In-app feedback ("How was your experience?") ----
+const FEEDBACK_KEY = 'nocap:feedback';
+
+app.post('/api/feedback', async (req, res) => {
+  if (!REDIS_URL || !REDIS_TOKEN) return res.status(503).json({ error: 'Feedback is not set up.' });
+  if (!checkRateLimit(req.ip || 'unknown')) return res.status(429).json({ error: 'Too many requests.' });
+  const rating = Number(req.body?.rating);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating must be 1 to 5.' });
+  const text = (v: unknown) => (typeof v === 'string' ? v.trim().slice(0, 500) : '');
+  const record = { at: new Date().toISOString(), rating, worked: text(req.body?.worked), confused: text(req.body?.confused) };
+  try {
+    await redisCommand(['LPUSH', FEEDBACK_KEY, JSON.stringify(record)]);
+    await redisCommand(['LTRIM', FEEDBACK_KEY, 0, 999]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Could not save.' });
+  }
+});
+
+app.get('/api/admin/feedback', async (req, res) => {
+  const adminPassword = process.env.ADMIN_PASSWORD || '';
+  if (!adminPassword || !REDIS_URL || !REDIS_TOKEN) return res.status(503).json({ error: 'Admin view is not set up.' });
+  const given = String(req.headers['x-admin-password'] || '');
+  const ok =
+    given.length === adminPassword.length &&
+    crypto.timingSafeEqual(Buffer.from(given), Buffer.from(adminPassword));
+  if (!ok) return res.status(401).json({ error: 'Wrong password.' });
+  try {
+    const rows: string[] = await redisCommand(['LRANGE', FEEDBACK_KEY, 0, 999]);
+    res.json({ feedback: rows.map((r) => JSON.parse(r)) });
   } catch {
     res.status(500).json({ error: 'Could not read.' });
   }

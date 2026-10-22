@@ -1015,15 +1015,39 @@ const CheaperAlternative: React.FC<{ product: RankedProduct }> = ({ product }) =
   );
 };
 
-function buildShareText(groups: RankedProduct[][]): string {
-  const tops = groups.filter((g) => g.length > 0).map((g) => g[0]);
-  const total = tops.reduce((sum, p) => sum + p.price, 0);
-  const lines = tops.map((p) => `• ${p.name} (₹${p.price})`);
+type PickProduct = Pick<AltCatalogProduct, 'id' | 'name' | 'price' | 'image' | 'rating' | 'ratingCount' | 'url'>;
+
+function buildShareText(picks: PickProduct[]): string {
+  const total = picks.reduce((sum, p) => sum + p.price, 0);
+  const lines = picks.map((p) => `\u2022 ${p.name} (\u20b9${p.price})`);
   return (
     'My No Cap skincare picks:\n' +
     lines.join('\n') +
-    `\n\nTotal: ₹${total.toLocaleString('en-IN')}\nGuidance, not medical advice. Find yours: ${APP_SHARE_URL}`
+    `\n\nTotal: \u20b9${total.toLocaleString('en-IN')}\nGuidance, not medical advice. Find yours: ${APP_SHARE_URL}`
   );
+}
+
+// More products of the same kind as the lead pick, so the person can choose a different one.
+function moreOptionsFor(group: RankedProduct[]): AltCatalogProduct[] {
+  const lead = group[0];
+  if (!lead) return [];
+  const shown = new Set(group.map((p) => p.id));
+  const tagKeys = ['oily', 'dry', 'sensitive', 'acne', 'noWhiteCast'] as const;
+  const overlap = (c: AltCatalogProduct) => tagKeys.filter((k) => lead.tags[k] && c.tags[k]).length;
+  return (altCatalogData as AltCatalogProduct[])
+    .filter(
+      (c) =>
+        !shown.has(c.id) &&
+        c.role === lead.role &&
+        c.activeKey === lead.activeKey &&
+        c.rating >= 4.0 &&
+        c.ratingCount >= 500 &&
+        (lead.role !== 'sunscreen' || (c.spf !== null && c.spf >= 30)) &&
+        (!c.flags.includes('high_strength') || lead.flags.includes('high_strength')) &&
+        (!lead.tags.noWhiteCast || c.tags.noWhiteCast)
+    )
+    .sort((a, b) => overlap(b) - overlap(a) || b.rating - a.rating || a.price - b.price)
+    .slice(0, 5);
 }
 
 function downloadSixWeekReminder() {
@@ -1059,13 +1083,20 @@ function downloadSixWeekReminder() {
 
 const RoutineCostCard: React.FC<{ groups: RankedProduct[][]; labels: string[] }> = ({ groups, labels }) => {
   const [copied, setCopied] = useState(false);
-  const filled = groups.filter((g) => g.length > 0);
-  if (filled.length === 0) return null;
+  // For each type, the id of the product the person chose instead of the first match.
+  const [chosen, setChosen] = useState<Record<number, string>>({});
+  const filledIdx = groups.map((g, i) => (g.length > 0 ? i : -1)).filter((i) => i >= 0);
+  if (filledIdx.length === 0) return null;
 
-  const topTotal = filled.reduce((sum, g) => sum + g[0].price, 0);
-  const cheapestTotal = filled.reduce((sum, g) => sum + Math.min(...g.map((p) => p.price)), 0);
-  const saving = topTotal - cheapestTotal;
-  const shareText = buildShareText(groups);
+  const pickFor = (i: number): PickProduct => {
+    const all: PickProduct[] = [...groups[i], ...moreOptionsFor(groups[i])];
+    return all.find((p) => p.id === chosen[i]) || groups[i][0];
+  };
+  const picks = filledIdx.map(pickFor);
+  const total = picks.reduce((sum, p) => sum + p.price, 0);
+  const cheapestTotal = filledIdx.reduce((sum, i) => sum + Math.min(...groups[i].map((p) => p.price)), 0);
+  const saving = total - cheapestTotal;
+  const shareText = buildShareText(picks);
 
   const shareOnWhatsApp = () => {
     window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank', 'noopener,noreferrer');
@@ -1087,49 +1118,92 @@ const RoutineCostCard: React.FC<{ groups: RankedProduct[][]; labels: string[] }>
         <div>
           <h3 className="font-serif text-lg font-bold text-stone-900">Your picks and what they cost</h3>
           <p className="text-[11px] text-stone-500">
-            Based on the first pick for each type. Prices are a snapshot and change often.
+            We start with your best match for each type. You can choose another one. Prices are a snapshot and
+            change often.
           </p>
         </div>
         <div className="text-right">
           <span className="block text-2xl font-bold font-mono text-stone-900">
-            ₹{topTotal.toLocaleString('en-IN')}
+            {'\u20b9'}{total.toLocaleString('en-IN')}
           </span>
           {saving > 0 && (
             <span className="block text-xs text-emerald-800 font-semibold">
-              Cheapest mix from your picks: ₹{cheapestTotal.toLocaleString('en-IN')} (save ₹
+              Cheapest mix from your top matches: {'\u20b9'}{cheapestTotal.toLocaleString('en-IN')} (save {'\u20b9'}
               {saving.toLocaleString('en-IN')})
             </span>
           )}
         </div>
       </div>
 
-      <ul className="space-y-2">
-        {groups.map((g, i) =>
-          g.length > 0 ? (
-            <li key={labels[i]} className="flex items-center gap-3 rounded-xl border border-stone-100 px-3 py-2">
-              {g[0].image && (
-                <img
-                  src={g[0].image}
-                  alt={g[0].name}
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  className="w-12 h-12 object-contain rounded-lg bg-stone-50 shrink-0"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLElement).style.display = 'none';
-                  }}
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                <span className="block text-[10px] uppercase tracking-wider font-bold text-stone-500">{labels[i]}</span>
-                <span className="block text-sm font-semibold text-stone-900 leading-snug">{g[0].name}</span>
+      <ul className="space-y-3">
+        {filledIdx.map((i, n) => {
+          const pick = picks[n];
+          const more = moreOptionsFor(groups[i]);
+          return (
+            <li key={labels[i]} className="rounded-xl border border-stone-100 px-3 py-2.5 space-y-2">
+              <div className="flex items-center gap-3">
+                {pick.image && (
+                  <img
+                    src={pick.image}
+                    alt={pick.name}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    className="w-12 h-12 object-contain rounded-lg bg-stone-50 shrink-0"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[10px] uppercase tracking-wider font-bold text-stone-500">
+                    {labels[i]}
+                  </span>
+                  <a
+                    href={pick.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-sm font-semibold text-stone-900 leading-snug underline-offset-2 hover:underline"
+                  >
+                    {pick.name}
+                  </a>
+                  <span className="block text-[11px] text-stone-500">
+                    Rated {pick.rating} from {pick.ratingCount.toLocaleString('en-IN')} ratings
+                  </span>
+                </div>
+                <span className="text-sm font-bold font-mono text-stone-900 shrink-0">{'\u20b9'}{pick.price}</span>
               </div>
-              <span className="text-sm font-bold font-mono text-stone-900 shrink-0">₹{g[0].price}</span>
+              <label className="block">
+                <span className="block text-[11px] text-stone-500 mb-1">Choose another {labels[i].toLowerCase()}</span>
+                <select
+                  value={pick.id}
+                  onChange={(e) => setChosen((prev) => ({ ...prev, [i]: e.target.value }))}
+                  className="w-full text-xs rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-stone-800"
+                >
+                  <optgroup label="Your top matches">
+                    {groups[i].map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({'\u20b9'}{p.price}, rated {p.rating})
+                      </option>
+                    ))}
+                  </optgroup>
+                  {more.length > 0 && (
+                    <optgroup label="More options of the same kind">
+                      {more.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({'\u20b9'}{p.price}, rated {p.rating})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </label>
             </li>
-          ) : null
-        )}
+          );
+        })}
       </ul>
       <p className="text-[11px] text-stone-500">
-        See every option, with reviews and links, in the sections below.
+        The extra options are ranked by how closely they match your top pick, not by your answers. Ingredients are
+        not compared, so read the label. See reviews and links for your top matches in the sections below.
       </p>
 
       <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-stone-100">

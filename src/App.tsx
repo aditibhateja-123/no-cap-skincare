@@ -26,7 +26,7 @@ const WISHLIST_STORAGE_KEY = 'nocap_wishlist_ids_v1';
 const SHELF_STORAGE_KEY = 'nocap_my_shelf_v1';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'finder' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide'>('finder');
+  const [activeTab, setActiveTab] = useState<'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide'>('finder');
   const [userAnswers, setUserAnswers] = useState<UserQuizAnswers | null>(null);
   const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult | null>(null);
   const [seenScan, setSeenScan] = useState<PhotoAnalysisResult | null>(null);
@@ -261,6 +261,12 @@ export default function App() {
             savedWishlistIds={savedWishlistIds}
             onToggleWishlist={handleToggleWishlist}
             onOpenQuiz={() => setActiveTab('scanner')}
+          />
+        ) : activeTab === 'concern' ? (
+          <KnownConcernView
+            onSubmit={(a) => handleQuizAndPhotoComplete(a, null, false)}
+            onOpenLabelGuide={() => setActiveTab('label')}
+            onOpenFinder={() => setActiveTab('finder')}
           />
         ) : activeTab === 'label' ? (
           <LabelGuideView />
@@ -819,3 +825,349 @@ const LabelGuideView: React.FC = () => (
     </p>
   </div>
 );
+
+// ---------- "I already know my concern": a shortcut past the long quiz ----------
+
+import type {
+  UserQuizAnswers as QCAnswers,
+  AgeRange as QCAge,
+  SkinTone as QCTone,
+  Budget as QCBudget,
+  HealthSituation as QCHealth,
+  Sensitivity as QCSens,
+  MarksDuration as QCMarks,
+  BreakoutLevel as QCBreakout,
+  Role as QCRole,
+  Concern as QCConcern,
+  MiddayFeel as QCFeel,
+} from './types';
+
+const QC_CONCERNS: { key: string; label: string; concern: QCConcern; feel?: QCFeel }[] = [
+  { key: 'acne', label: 'Acne or pimples', concern: 'acne' },
+  { key: 'red', label: 'Red marks after pimples', concern: 'red marks' },
+  { key: 'brown', label: 'Brown or dark marks after pimples', concern: 'brown marks' },
+  { key: 'pores', label: 'Blackheads or clogged pores', concern: 'clogged pores' },
+  { key: 'oil', label: 'Oily shine', concern: 'oil and shine', feel: 'oily' },
+  { key: 'dry', label: 'Dry or tight skin', concern: 'tight or dehydrated skin', feel: 'dry' },
+];
+const QC_AGES: QCAge[] = ['under 18', '18 to 24', '25 to 34', '35 or older'];
+const QC_TONES: { value: QCTone; color: string }[] = [
+  { value: 'very fair', color: '#f8e0cf' },
+  { value: 'fair', color: '#efc9a8' },
+  { value: 'wheatish', color: '#d9a577' },
+  { value: 'medium brown', color: '#a8734a' },
+  { value: 'deep brown', color: '#6b4326' },
+];
+const QC_BUDGETS: QCBudget[] = ['under ₹300', '₹300 to 600', 'over ₹600'];
+const QC_BREAKOUTS: QCBreakout[] = ['mild', 'moderate', 'deep and painful'];
+const QC_MARKS: QCMarks[] = ['under 3 months', '3 to 12 months', 'over a year'];
+const QC_SENS: { value: QCSens; label: string }[] = [
+  { value: 'never', label: 'Never' },
+  { value: 'sometimes', label: 'Sometimes' },
+  { value: 'often', label: 'Often' },
+];
+const QC_HEALTH: QCHealth[] = [
+  'pregnant or breastfeeding',
+  'on a prescribed skin treatment',
+  'told by a doctor I have melasma',
+];
+const QC_ROLES: { value: QCRole; label: string }[] = [
+  { value: 'cleanser', label: 'Cleanser' },
+  { value: 'moisturizer', label: 'Moisturizer' },
+  { value: 'sunscreen', label: 'Sunscreen' },
+  { value: 'treatment', label: 'Treatment for marks or acne' },
+];
+
+const QC_NEEDS_A_DOCTOR = [
+  'Eczema, or very itchy, flaky patches',
+  'Rosacea, or flushing that does not settle',
+  'Fungal acne (itchy, uniform small bumps)',
+  'Melasma (dark patches that spread, often on both cheeks)',
+  'Deep, painful or cystic acne',
+  'A sudden rash, swelling or burning',
+  'Anything spreading, bleeding or that looks infected',
+];
+const QC_NOT_COVERED = [
+  'Dark circles',
+  'Open pores',
+  'Wrinkles and anti-ageing',
+  'Lip care',
+  'Body or back acne',
+  'Hair and scalp',
+  'Tan removal',
+];
+
+const qcChip = (active: boolean) =>
+  `px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
+    active
+      ? 'bg-stone-900 text-white border-stone-900'
+      : 'bg-white text-stone-800 border-stone-300 hover:bg-stone-100'
+  }`;
+
+interface KnownConcernViewProps {
+  onSubmit: (answers: QCAnswers) => void;
+  onOpenLabelGuide: () => void;
+  onOpenFinder: () => void;
+}
+
+const KnownConcernView: React.FC<KnownConcernViewProps> = ({ onSubmit, onOpenLabelGuide, onOpenFinder }) => {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [breakout, setBreakout] = useState<QCBreakout | null>(null);
+  const [marks, setMarks] = useState<QCMarks | null>(null);
+  const [age, setAge] = useState<QCAge | null>(null);
+  const [tone, setTone] = useState<QCTone | null>(null);
+  const [budget, setBudget] = useState<QCBudget>('₹300 to 600');
+  const [sens, setSens] = useState<QCSens>('never');
+  const [health, setHealth] = useState<QCHealth[]>([]);
+  const [looking, setLooking] = useState<QCRole[]>(['cleanser', 'moisturizer', 'sunscreen', 'treatment']);
+  const [showOther, setShowOther] = useState(false);
+
+  const toggle = <T,>(list: T[], item: T): T[] =>
+    list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+
+  const hasAcne = picked.includes('acne');
+  const hasMarks = picked.includes('red') || picked.includes('brown');
+  const ready =
+    picked.length > 0 &&
+    age !== null &&
+    tone !== null &&
+    looking.length > 0 &&
+    (!hasAcne || breakout !== null) &&
+    (!hasMarks || marks !== null);
+
+  const submit = () => {
+    if (!ready || age === null || tone === null) return;
+    const chosen = QC_CONCERNS.filter((c) => picked.includes(c.key));
+    const answers: QCAnswers = {
+      lookingFor: looking,
+      ageRange: age,
+      skinTone: tone,
+      concerns: chosen.map((c) => c.concern),
+      middayFeel: chosen.find((c) => c.feel)?.feel || 'combination',
+      breakoutLevel: hasAcne ? breakout || 'mild' : 'none',
+      marksDuration: hasMarks ? marks || 'under 3 months' : 'none',
+      sensitivity: sens,
+      healthSituations: health,
+      budget,
+    };
+    onSubmit(answers);
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-6">
+      <div className="text-center">
+        <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900">I already know my concern</h1>
+        <p className="text-sm text-stone-600 mt-2 max-w-xl mx-auto">
+          Skip the long quiz. Pick your concern, answer a few safety questions, and get picks. It uses the same
+          safety rules as the full quiz.
+        </p>
+        <button
+          type="button"
+          onClick={onOpenFinder}
+          className="mt-2 text-xs font-medium text-stone-700 underline underline-offset-2 hover:text-stone-900 cursor-pointer"
+        >
+          Only need a sunscreen? Use the Sunscreen finder
+        </button>
+      </div>
+
+      <section className="bg-white border border-[#e7ded4] rounded-2xl p-5 sm:p-6 space-y-5">
+        <div>
+          <h2 className="font-serif text-lg font-bold text-stone-900 mb-2">
+            What is your concern? <span className="text-xs font-normal text-stone-500">Pick any</span>
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {QC_CONCERNS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => setPicked((p) => toggle(p, c.key))}
+                className={qcChip(picked.includes(c.key))}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {hasAcne && (
+          <div>
+            <h3 className="font-serif text-base font-bold text-stone-900 mb-2">How bad are the breakouts?</h3>
+            <div className="flex flex-wrap gap-2">
+              {QC_BREAKOUTS.map((b) => (
+                <button key={b} type="button" onClick={() => setBreakout(b)} className={qcChip(breakout === b)}>
+                  {b.charAt(0).toUpperCase() + b.slice(1)}
+                </button>
+              ))}
+            </div>
+            {breakout === 'deep and painful' && (
+              <p className="text-xs text-amber-900 mt-2">
+                Deep, painful breakouts need a dermatologist. We will show that instead of products.
+              </p>
+            )}
+          </div>
+        )}
+
+        {hasMarks && (
+          <div>
+            <h3 className="font-serif text-base font-bold text-stone-900 mb-2">How long have the marks been there?</h3>
+            <div className="flex flex-wrap gap-2">
+              {QC_MARKS.map((m) => (
+                <button key={m} type="button" onClick={() => setMarks(m)} className={qcChip(marks === m)}>
+                  {m.charAt(0).toUpperCase() + m.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <h2 className="font-serif text-lg font-bold text-stone-900 mb-2">What do you want to buy?</h2>
+          <div className="flex flex-wrap gap-2">
+            {QC_ROLES.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => setLooking((l) => toggle(l, r.value))}
+                className={qcChip(looking.includes(r.value))}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white border border-[#e7ded4] rounded-2xl p-5 sm:p-6 space-y-5">
+        <h2 className="font-serif text-lg font-bold text-stone-900">A few quick safety questions</h2>
+
+        <div>
+          <h3 className="text-sm font-semibold text-stone-800 mb-2">Your age</h3>
+          <div className="flex flex-wrap gap-2">
+            {QC_AGES.map((a) => (
+              <button key={a} type="button" onClick={() => setAge(a)} className={qcChip(age === a)}>
+                {a.charAt(0).toUpperCase() + a.slice(1)}
+              </button>
+            ))}
+          </div>
+          {age === 'under 18' && (
+            <p className="text-xs text-stone-600 mt-2">Under 18: you will get gentle basics only, with no actives.</p>
+          )}
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-stone-800 mb-2">Your skin tone</h3>
+          <div className="flex flex-wrap gap-2">
+            {QC_TONES.map((t) => (
+              <button key={t.value} type="button" onClick={() => setTone(t.value)} className={qcChip(tone === t.value)}>
+                <span className="inline-flex items-center gap-2">
+                  <span
+                    className="inline-block w-4 h-4 rounded-full border border-stone-400"
+                    style={{ backgroundColor: t.color }}
+                  />
+                  {t.value.charAt(0).toUpperCase() + t.value.slice(1)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-stone-800 mb-2">Budget per product</h3>
+          <div className="flex flex-wrap gap-2">
+            {QC_BUDGETS.map((b) => (
+              <button key={b} type="button" onClick={() => setBudget(b)} className={qcChip(budget === b)}>
+                {b.charAt(0).toUpperCase() + b.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-stone-800 mb-2">Does your skin sting or redden with new products?</h3>
+          <div className="flex flex-wrap gap-2">
+            {QC_SENS.map((s) => (
+              <button key={s.value} type="button" onClick={() => setSens(s.value)} className={qcChip(sens === s.value)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-stone-800 mb-2">
+            Does any of this apply to you? <span className="text-xs font-normal text-stone-500">Tick any</span>
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {QC_HEALTH.map((h) => (
+              <button key={h} type="button" onClick={() => setHealth((l) => toggle(l, h))} className={qcChip(health.includes(h))}>
+                {h.charAt(0).toUpperCase() + h.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!ready}
+            className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
+              ready
+                ? 'bg-stone-900 hover:bg-stone-800 text-white cursor-pointer shadow-md'
+                : 'bg-stone-200 text-stone-500 cursor-not-allowed'
+            }`}
+          >
+            Show my picks
+          </button>
+        </div>
+      </section>
+
+      <section className="bg-white border border-[#e7ded4] rounded-2xl p-5 sm:p-6">
+        <button
+          type="button"
+          onClick={() => setShowOther((v) => !v)}
+          className="w-full flex items-center justify-between text-left cursor-pointer"
+        >
+          <span className="font-serif text-lg font-bold text-stone-900">My concern is not in this list</span>
+          <span className="text-sm text-stone-600">{showOther ? 'Hide' : 'Show'}</span>
+        </button>
+        {showOther && (
+          <div className="mt-4 space-y-5 text-sm text-stone-700">
+            <div>
+              <h3 className="font-semibold text-stone-900 mb-1">These need a dermatologist, not a product</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                {QC_NEEDS_A_DOCTOR.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-stone-500">
+                We do not recommend products for these, because a doctor needs to diagnose them first.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-stone-900 mb-1">Not covered yet</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                {QC_NOT_COVERED.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-stone-500">
+                Our product list focuses on acne, marks and sunscreen, so we have no verified picks for these. You can
+                still use the Label guide to judge any product you find.
+              </p>
+              <button
+                type="button"
+                onClick={onOpenLabelGuide}
+                className="mt-2 text-xs font-medium text-stone-900 underline underline-offset-2 cursor-pointer"
+              >
+                Open the Label guide
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <p className="text-xs text-stone-500 text-center">Guidance, not medical advice.</p>
+    </div>
+  );
+};

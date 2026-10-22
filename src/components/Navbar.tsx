@@ -1,9 +1,9 @@
 import React from 'react';
-import { Sparkles, History, BookOpen, Camera, Calendar, Heart, Layers, Sun, Tag } from 'lucide-react';
+import { Sparkles, History, BookOpen, Camera, Calendar, Heart, Layers, Sun, Tag, Target } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'finder' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide';
-  setActiveTab: (tab: 'finder' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide') => void;
+  activeTab: 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide';
+  setActiveTab: (tab: 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide') => void;
   savedScansCount: number;
   plansCount: number;
   savedWishlistCount: number;
@@ -71,6 +71,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Camera className="w-4 h-4" />
               <span>Skin Scanner</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('concern')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                activeTab === 'concern'
+                  ? 'bg-stone-900 text-white shadow-xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+              }`}
+            >
+              <Target className="w-4 h-4" />
+              <span>Know your concern</span>
             </button>
 
             <button

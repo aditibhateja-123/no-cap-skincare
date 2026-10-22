@@ -439,11 +439,36 @@ STRICT RULES:
     };
 
     return res.json(sanitized);
-  } catch (error) {
-    // Return a generic error message; NEVER expose internal error details or log user image data
+  } catch (error: any) {
+    // Return a generic message. Log only the status and a short error message (never the image),
+    // and tell the client a coarse reason so a failed scan can be diagnosed.
+    const status = Number(error?.status ?? error?.code ?? 0);
+    const msg = String(error?.message ?? '').slice(0, 300);
+    console.error('analyze-skin failed:', status, msg);
+    let reason = 'unknown';
+    if (/api key|permission|unauthenticated|PERMISSION_DENIED/i.test(msg) || status === 401 || status === 403) reason = 'api_key';
+    else if (/not found|is not supported|model/i.test(msg) || status === 404) reason = 'model';
+    else if (status === 429 || /quota|rate|exhausted/i.test(msg)) reason = 'quota';
+    else if (/timeout|deadline|abort/i.test(msg)) reason = 'timeout';
     return res.status(500).json({
       error: 'Unable to analyze photo at this time. You can still view recommendations with the quiz.',
+      reason,
     });
+  }
+});
+
+// TEMPORARY diagnostic: which models can the configured key use? Names only. Remove after use.
+app.get('/api/_models', async (_req, res) => {
+  try {
+    const pager: any = await ai.models.list();
+    const names: string[] = [];
+    for await (const m of pager) {
+      names.push(String(m.name));
+      if (names.length >= 200) break;
+    }
+    res.json({ count: names.length, names });
+  } catch (error: any) {
+    res.status(500).json({ error: String(error?.message ?? 'failed').slice(0, 200) });
   }
 });
 

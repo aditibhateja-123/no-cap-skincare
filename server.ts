@@ -290,8 +290,8 @@ const SCAN_MODELS = [
   'gemini-flash-latest',
   'gemini-3.1-flash-lite',
 ];
-const PER_MODEL_TIMEOUT_MS = 12000;
-const TOTAL_BUDGET_MS = 45000; // stay under the 60 second function limit
+const HEDGE_MS = 6000; // if a model has not answered by then, also start the next one
+const TOTAL_BUDGET_MS = 50000; // stay under the 60 second function limit
 
 function isRetryable(e: any): boolean {
   const status = Number(e?.status ?? e?.code ?? 0);
@@ -302,25 +302,56 @@ function isRetryable(e: any): boolean {
   );
 }
 
-async function generateWithFallback(params: any) {
-  let lastError: any;
-  const startedAt = Date.now();
-  for (const model of SCAN_MODELS) {
-    if (Date.now() - startedAt > TOTAL_BUDGET_MS) break;
-    try {
-      return await Promise.race([
-        ai.models.generateContent({ ...params, model }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(Object.assign(new Error('timed out'), { status: 504 })), PER_MODEL_TIMEOUT_MS)
-        ),
-      ]);
-    } catch (e: any) {
-      lastError = e;
-      if (!isRetryable(e)) throw e;
-      console.error('scan model failed, trying next:', model, Number(e?.status ?? 0), String(e?.message ?? '').slice(0, 120));
-    }
-  }
-  throw lastError;
+// Starts the preferred model. If it fails, or is slow, the next model starts in parallel.
+// The first successful answer wins.
+function generateWithFallback(params: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    let launched = 0;
+    let failed = 0;
+    let done = false;
+    let lastError: any;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const finish = (fn: () => void) => {
+      if (done) return;
+      done = true;
+      timers.forEach(clearTimeout);
+      fn();
+    };
+
+    const launch = () => {
+      if (done || launched >= SCAN_MODELS.length) return;
+      const idx = launched++;
+      const model = SCAN_MODELS[idx];
+      ai.models
+        .generateContent({ ...params, model })
+        .then((response) => {
+          (response as any)._model = model;
+          finish(() => resolve(response));
+        })
+        .catch((e: any) => {
+          lastError = e;
+          failed++;
+          console.error('scan model failed:', model, Number(e?.status ?? 0), String(e?.message ?? '').slice(0, 120));
+          if (!isRetryable(e)) return finish(() => reject(e));
+          if (launched === idx + 1) launch();
+          if (failed >= SCAN_MODELS.length) finish(() => reject(lastError));
+        });
+      timers.push(
+        setTimeout(() => {
+          if (!done && launched === idx + 1) launch();
+        }, HEDGE_MS)
+      );
+    };
+
+    timers.push(
+      setTimeout(
+        () => finish(() => reject(lastError || Object.assign(new Error('timed out'), { status: 504 }))),
+        TOTAL_BUDGET_MS
+      )
+    );
+    launch();
+  });
 }
 
 // API: Describe visible features in face photo
@@ -369,6 +400,7 @@ app.post('/api/analyze-skin', async (req, res) => {
       });
     }
 
+    const scanStartedAt = Date.now();
     const prompt = `You are an objective facial skin descriptor. Describe what is visible in the photo.
 STRICT RULES:
 1. Describe ONLY what is clearly visible. Lighting, makeup, filters and skin tone alter what a camera can capture. Lower your confidence when unsure (note: redness is often less distinguishable on deeper skin tones).
@@ -480,6 +512,8 @@ STRICT RULES:
       zone_map: sanitizeZoneMap(rawJson.zone_map),
     };
 
+    res.setHeader('x-scan-model', String((response as any)._model || ''));
+    res.setHeader('x-scan-ms', String(Date.now() - scanStartedAt));
     return res.json(sanitized);
   } catch (error: any) {
     // Return a generic message. Log only the status and a short error message (never the image),

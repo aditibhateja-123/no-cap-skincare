@@ -1099,6 +1099,14 @@ const RoutineCostCard: React.FC<{ groups: RankedProduct[][]; labels: string[] }>
   const shareText = buildShareText(picks);
 
   const shareOnWhatsApp = () => {
+    // On phones, the native share sheet keeps this page open. Some in-app browsers
+    // lose the page when it jumps straight to WhatsApp.
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      navigator.share({ text: shareText }).catch(() => {
+        /* closed without sharing */
+      });
+      return;
+    }
     window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank', 'noopener,noreferrer');
   };
 
@@ -1212,7 +1220,7 @@ const RoutineCostCard: React.FC<{ groups: RankedProduct[][]; labels: string[] }>
           onClick={shareOnWhatsApp}
           className="px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer"
         >
-          Share my picks on WhatsApp
+          Share my picks
         </button>
         <button
           type="button"

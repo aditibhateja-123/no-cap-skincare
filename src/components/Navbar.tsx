@@ -1,9 +1,9 @@
 import React from 'react';
-import { Sparkles, History, BookOpen, Camera, Calendar, Heart, Layers } from 'lucide-react';
+import { Sparkles, History, BookOpen, Camera, Calendar, Heart, Layers, Sun } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide';
-  setActiveTab: (tab: 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide') => void;
+  activeTab: 'finder' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide';
+  setActiveTab: (tab: 'finder' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide') => void;
   savedScansCount: number;
   plansCount: number;
   savedWishlistCount: number;
@@ -49,6 +49,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Navigation Controls */}
           <nav className="flex items-center gap-1 sm:gap-2">
+            <button
+              onClick={() => setActiveTab('finder')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                activeTab === 'finder'
+                  ? 'bg-stone-900 text-white shadow-xs'
+                  : 'text-stone-700 hover:text-stone-900 hover:bg-stone-100'
+              }`}
+            >
+              <Sun className="w-4 h-4" />
+              <span>Sunscreen finder</span>
+            </button>
+
             <button
               onClick={() => setActiveTab('scanner')}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer ${

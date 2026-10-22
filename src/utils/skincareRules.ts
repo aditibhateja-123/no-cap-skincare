@@ -933,3 +933,156 @@ export function calculateWeekendStreak(
 
   return streak;
 }
+
+import type { MiddayFeel as FinderFeel, SkinTone as FinderTone, Budget as FinderBudget } from '../types';
+
+export type FinderPriority = 'noWhiteCast' | 'spf50' | 'gentle' | 'acne';
+
+export const FINDER_PRIORITY_LABELS: Record<FinderPriority, string> = {
+  noWhiteCast: 'No white cast',
+  spf50: 'SPF 50 or higher',
+  gentle: 'Gentle on sensitive skin',
+  acne: 'For acne-prone skin',
+};
+
+export interface FinderAnswers {
+  feel: FinderFeel;
+  tone: FinderTone;
+  budget: FinderBudget;
+  priorities: FinderPriority[];
+}
+
+export interface FinderResult {
+  product: CatalogProduct;
+  score: number;
+  matchedOn: string[];
+  isAboveBudget: boolean;
+  flagLabels: string[];
+  // Priorities this product does not meet, as readable text.
+  missing: string[];
+}
+
+export interface FinderOutput {
+  results: FinderResult[];
+  // True when no product meets every ticked priority.
+  noExactMatch: boolean;
+}
+
+function finderMeets(product: CatalogProduct, priority: FinderPriority): boolean {
+  switch (priority) {
+    case 'noWhiteCast':
+      return product.tags.noWhiteCast;
+    case 'spf50':
+      return product.spf !== null && product.spf >= 50;
+    case 'gentle':
+      return product.tags.sensitive && !product.flags.includes('high_strength');
+    case 'acne':
+      return product.tags.acne;
+  }
+}
+
+export function findSunscreens(answers: FinderAnswers): FinderOutput {
+  const budgetCap =
+    answers.budget === 'under ₹300' ? 300 : answers.budget === '₹300 to 600' ? 600 : 1000;
+  const gentle = answers.priorities.includes('gentle');
+  const acne = answers.priorities.includes('acne');
+  const isOilyCombo =
+    answers.feel === 'oily' || answers.feel === 'combination' || answers.feel === 'oily but tight';
+  const isDeeperTone =
+    answers.tone === 'wheatish' || answers.tone === 'medium brown' || answers.tone === 'deep brown';
+
+  const candidates = catalog.filter(
+    (p) =>
+      p.role === 'sunscreen' &&
+      p.rating >= 4.0 &&
+      p.ratingCount >= 500 &&
+      p.spf !== null &&
+      p.spf >= 30 &&
+      p.activeKey === null &&
+      !(gentle && p.flags.includes('high_strength'))
+  );
+
+  const scored: FinderResult[] = candidates.map((product) => {
+    let score = 0;
+    const matchedOn: string[] = [];
+
+    if (isOilyCombo && product.tags.oily) {
+      score += 2;
+      matchedOn.push('labelled oil-free, gel or for oily skin');
+    }
+    if (isOilyCombo && product.tags.dry && !product.tags.oily) score -= 1.5;
+    if (answers.feel === 'dry' && product.tags.dry) {
+      score += 2;
+      matchedOn.push('labelled for dry skin');
+    }
+    if (answers.feel === 'dry' && product.tags.oily && !product.tags.dry) score -= 1.5;
+    if (gentle && product.tags.sensitive) {
+      score += 1.5;
+      matchedOn.push('labelled suitable for sensitive skin');
+    }
+    if (acne && product.tags.acne) {
+      score += 1;
+      matchedOn.push('targeted for acne-prone skin');
+    }
+    if (product.tags.noWhiteCast) {
+      if (isDeeperTone) {
+        score += 2;
+        matchedOn.push('labelled no white cast (matters more on deeper skin tones)');
+      } else {
+        score += 1;
+        matchedOn.push('labelled no white cast');
+      }
+    }
+    if (product.spf !== null && product.spf >= 50) {
+      score += 0.5;
+      matchedOn.push(`SPF ${product.spf}`);
+    }
+    score += (product.rating - 4) * 2;
+    if (product.ratingCount >= 10000) score += 1;
+    matchedOn.push(
+      `rated ${product.rating} from ${product.ratingCount.toLocaleString('en-IN')} ratings on ${product.seller}`
+    );
+
+    const flagLabels: string[] = [];
+    if (product.flags.includes('may_contain_extra_active')) {
+      flagLabels.push('Check the label: may contain a second active');
+    }
+    if (product.flags.includes('high_strength')) flagLabels.push('Strong version');
+
+    const missing = answers.priorities
+      .filter((pr) => !finderMeets(product, pr))
+      .map((pr) => `Does not match: ${FINDER_PRIORITY_LABELS[pr]}`);
+
+    return {
+      product,
+      score,
+      matchedOn,
+      isAboveBudget: product.price > budgetCap,
+      flagLabels,
+      missing,
+    };
+  });
+
+  const byScoreThenPrice = (a: FinderResult, b: FinderResult) =>
+    b.score !== a.score ? b.score - a.score : a.product.price - b.product.price;
+  const byCheapest = (a: FinderResult, b: FinderResult) => a.product.price - b.product.price;
+
+  const exact = scored.filter((r) => r.missing.length === 0);
+  const near = scored.filter((r) => r.missing.length > 0);
+
+  // Within budget first (best score first), then the cheapest above budget.
+  const order = (list: FinderResult[]) => [
+    ...list.filter((r) => !r.isAboveBudget).sort(byScoreThenPrice),
+    ...list.filter((r) => r.isAboveBudget).sort(byCheapest),
+  ];
+
+  const nearOrdered = [...near].sort((a, b) => {
+    if (a.isAboveBudget !== b.isAboveBudget) return a.isAboveBudget ? 1 : -1;
+    if (a.missing.length !== b.missing.length) return a.missing.length - b.missing.length;
+    return byScoreThenPrice(a, b);
+  });
+
+  const results = [...order(exact), ...nearOrdered].slice(0, 3);
+
+  return { results, noExactMatch: answers.priorities.length > 0 && exact.length === 0 };
+}

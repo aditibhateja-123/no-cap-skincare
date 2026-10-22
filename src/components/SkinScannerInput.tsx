@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Camera,
   Upload,
@@ -141,6 +141,8 @@ export const SkinScannerInput: React.FC<SkinScannerInputProps> = ({
   const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [isDemoProfile, setIsDemoProfile] = useState(false);
+  // The last photo that was sent for scanning, so each photo is scanned only once.
+  const scannedImageRef = useRef<string | null>(null);
 
   const isUnder18 = ageRange === 'under 18';
 
@@ -215,6 +217,7 @@ export const SkinScannerInput: React.FC<SkinScannerInputProps> = ({
   };
 
   const performPhotoScan = async (imageDataUrl: string) => {
+    scannedImageRef.current = imageDataUrl;
     setIsScanningPhoto(true);
     setPhotoError(null);
     try {
@@ -231,6 +234,16 @@ export const SkinScannerInput: React.FC<SkinScannerInputProps> = ({
       setIsScanningPhoto(false);
     }
   };
+
+  // Photos from the live camera arrive through props. Scan them the same way as uploaded photos.
+  // Demo profiles use an SVG picture, so only real JPEG photos are scanned here.
+  useEffect(() => {
+    if (!capturedImage || !capturedImage.startsWith('data:image/jpeg')) return;
+    if (capturedImage === scannedImageRef.current || isScanningPhoto || isUnder18) return;
+    setIsDemoProfile(false);
+    performPhotoScan(capturedImage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capturedImage]);
 
   const toggleFinding = (findingId: string) => {
     if (!photoResult) return;

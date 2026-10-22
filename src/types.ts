@@ -81,6 +81,23 @@ export interface PhotoFinding {
   enabled?: boolean;
 }
 
+export interface PhotoOverview {
+  oiliness: string;
+  texture: string;
+  redness: string;
+  pigmentation: string;
+  pore_visibility: string;
+  under_eye_darkness: string;
+  visible_pimples: string;
+  visible_marks: string;
+}
+
+export interface PhotoZoneNote {
+  zone: string;
+  level: 'clear' | 'mild' | 'moderate' | 'marked';
+  note: string;
+}
+
 export interface PhotoAnalysisResult {
   image_ok: boolean;
   quality_issues: QualityIssue[];
@@ -89,6 +106,8 @@ export interface PhotoAnalysisResult {
   clinician_reason: string;
   confidence: 'low' | 'medium' | 'high';
   summary: string;
+  overview?: PhotoOverview;
+  zone_map?: PhotoZoneNote[];
 }
 
 export interface CatalogReviews {
@@ -126,6 +145,7 @@ export interface CatalogProduct {
   url: string;
   checkedAt: string;
   reviews: CatalogReviews | null;
+  image?: string;
   dermReview?: {
     reviewedBy: string;
     date: string;

@@ -308,22 +308,9 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             <strong className="text-stone-900 text-sm capitalize">{answers.sensitivity}</strong>
           </div>
         </div>
-
-        {/* Photo findings note if attached */}
-        {photoResult && photoResult.image_ok && (
-          <div className="mt-4 p-3 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-600">
-            {isDemoProfile && (
-              <div className="mb-1 text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-0.5 inline-block">
-                Fake photo result (Demo profile, not a real person)
-              </div>
-            )}
-            <div>
-              <span className="font-semibold text-stone-800">Photo notes: </span>
-              {photoResult.summary}
-            </div>
-          </div>
-        )}
       </div>
+
+      <FaceScanReport photoResult={photoResult} isDemoProfile={isDemoProfile} onRetake={onNewScan} />
 
       {/* Basics Only Notice if applicable */}
       {routineSchedule.basicsOnly && (
@@ -599,6 +586,23 @@ const ProductGroupSection: React.FC<ProductGroupSectionProps> = ({
                   </button>
                 </div>
 
+                {/* Product image from the Nykaa listing */}
+                {p.image && (
+                  <div className="w-full h-40 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      title="Image from the Nykaa listing"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      className="max-h-full max-w-full object-contain"
+                      onError={(e) => {
+                        (e.currentTarget.parentElement as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+
                 {/* Product Card Header */}
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -678,6 +682,252 @@ const ProductGroupSection: React.FC<ProductGroupSectionProps> = ({
           );
         })}
       </div>
+    </div>
+  );
+};
+
+const FACE_SCAN_TYPE_LABELS: Record<string, string> = {
+  active_pimples: 'Active pimples',
+  red_marks: 'Red marks',
+  brown_marks: 'Brown marks',
+  closed_comedones_or_bumps: 'Clogged pores or small bumps',
+  oily_shine: 'Oily shine',
+  dryness_flaking: 'Dryness or flaking',
+  dark_circles: 'Dark circles',
+  diffuse_redness: 'Spread-out redness',
+  other: 'Other visible concern',
+};
+
+// Fixed, rule-based guidance for each kind of finding. Not written by the AI.
+const FACE_SCAN_NEEDS: Record<string, string> = {
+  active_pimples:
+    'Gentle cleansing, no picking or scrubbing. Painful, deep or spreading pimples need a dermatologist.',
+  red_marks:
+    'Daily sunscreen and patience. Red marks fade slowly, and one gentle active at a time is enough.',
+  brown_marks:
+    'Daily sunscreen matters most. Then one active at a time, such as azelaic acid or alpha arbutin, and give it weeks, not days.',
+  closed_comedones_or_bumps:
+    'A gentle cleanser, and a salicylic acid cleanser can help. Do not scrub.',
+  oily_shine: 'A light gel moisturizer and an oil-free sunscreen.',
+  dryness_flaking: 'A barrier-friendly moisturizer, and avoid harsh or foaming cleansers.',
+  dark_circles:
+    'Sleep and daily sunscreen help. Our product picks do not target dark circles.',
+  diffuse_redness:
+    'Be gentle and patch test everything. Redness that is widespread or does not settle should be checked by a doctor.',
+  other: 'If you are unsure what this is, ask a dermatologist.',
+};
+
+const FACE_SCAN_QUALITY_LABELS: Record<string, string> = {
+  too_dark: 'The photo is too dark',
+  too_bright: 'The photo is too bright',
+  blurry: 'The photo is blurry',
+  no_face: 'No face was found',
+  multiple_faces: 'More than one face is in the photo',
+  heavy_makeup_or_filter: 'Makeup or a filter is covering the skin',
+  face_partly_covered: 'Part of the face is covered',
+  low_resolution: 'The photo could not be read clearly',
+};
+
+const FACE_SCAN_SEVERITY_RANK: Record<string, number> = { marked: 3, moderate: 2, mild: 1, none: 0 };
+
+const FACE_SCAN_OVERVIEW_LABELS: [string, string][] = [
+  ['oiliness', 'Oiliness'],
+  ['texture', 'Texture'],
+  ['redness', 'Redness'],
+  ['pigmentation', 'Dark or brown marks'],
+  ['pore_visibility', 'Visible pores'],
+  ['under_eye_darkness', 'Under-eye darkness'],
+  ['visible_pimples', 'Visible pimples'],
+  ['visible_marks', 'Visible marks'],
+];
+
+const FACE_SCAN_ZONE_LABELS: Record<string, string> = {
+  forehead: 'Forehead',
+  left_cheek: 'Left cheek',
+  right_cheek: 'Right cheek',
+  nose: 'Nose',
+  chin: 'Chin',
+  under_eye: 'Under eyes',
+  around_mouth: 'Around mouth',
+};
+
+const FACE_SCAN_ZONE_STYLES: Record<string, string> = {
+  clear: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  mild: 'bg-yellow-50 text-yellow-900 border-yellow-200',
+  moderate: 'bg-amber-100 text-amber-900 border-amber-300',
+  marked: 'bg-rose-100 text-rose-900 border-rose-300',
+};
+
+const FACE_SCAN_SEVERITY_STYLES: Record<string, string> = {
+  none: 'bg-stone-100 text-stone-700 border-stone-200',
+  mild: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  moderate: 'bg-amber-100 text-amber-900 border-amber-300',
+  marked: 'bg-rose-100 text-rose-900 border-rose-300',
+};
+
+interface FaceScanReportProps {
+  photoResult: PhotoAnalysisResult | null;
+  isDemoProfile: boolean;
+  onRetake: () => void;
+}
+
+export const FaceScanReport: React.FC<FaceScanReportProps> = ({ photoResult, isDemoProfile, onRetake }) => {
+  if (!photoResult) {
+    return (
+      <div className="p-5 rounded-3xl bg-white border border-stone-200 text-xs text-stone-600">
+        <h3 className="font-serif text-base font-bold text-stone-900 mb-1">Your face scan</h3>
+        <p>
+          You did not add a photo, so these picks come from your quiz answers only. To get a scan, retake the quiz
+          and add a photo on the second step. Photo scanning is not available under 18.
+        </p>
+      </div>
+    );
+  }
+
+  if (!photoResult.image_ok || photoResult.confidence === 'low') {
+    return (
+      <div className="p-5 rounded-3xl bg-amber-50 border border-amber-300 text-xs text-amber-950 space-y-2">
+        <h3 className="font-serif text-base font-bold text-amber-900">We could not read your photo clearly</h3>
+        {photoResult.quality_issues.length > 0 && (
+          <ul className="list-disc pl-5">
+            {photoResult.quality_issues.map((q) => (
+              <li key={q}>{FACE_SCAN_QUALITY_LABELS[q] || q}</li>
+            ))}
+          </ul>
+        )}
+        <p>
+          Try again in daylight, with no makeup or filter, facing the camera. If this keeps happening, the scan
+          service may be unavailable for now. Your picks below come from your quiz answers only.
+        </p>
+        <button
+          onClick={onRetake}
+          className="px-3 py-1.5 rounded-lg bg-stone-900 text-white font-semibold cursor-pointer"
+        >
+          Retake with a new photo
+        </button>
+      </div>
+    );
+  }
+
+  const used = photoResult.findings
+    .filter((f) => f.enabled !== false && f.severity !== 'none')
+    .sort((a, b) => (FACE_SCAN_SEVERITY_RANK[b.severity] || 0) - (FACE_SCAN_SEVERITY_RANK[a.severity] || 0));
+  const types = Array.from(new Set(used.map((f) => f.type)));
+
+  return (
+    <div className="p-5 sm:p-6 rounded-3xl bg-white border border-stone-200 space-y-4">
+      {isDemoProfile && (
+        <div className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-0.5 inline-block">
+          Fake photo result (Demo profile, not a real person)
+        </div>
+      )}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-serif text-xl font-bold text-stone-900">Your face scan</h3>
+          <p className="text-[11px] text-stone-500">AI description, not a diagnosis. It may be wrong.</p>
+        </div>
+        <span className="text-[10px] uppercase font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded shrink-0">
+          Confidence: {photoResult.confidence}
+        </span>
+      </div>
+
+      {photoResult.summary && (
+        <p className="text-sm text-stone-700 bg-stone-50 p-3 rounded-xl border border-stone-200">
+          {photoResult.summary}
+        </p>
+      )}
+
+      {photoResult.overview && (
+        <div>
+          <h4 className="text-xs uppercase tracking-wider font-semibold text-stone-600 mb-2">Skin overview</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {FACE_SCAN_OVERVIEW_LABELS.map(([key, label]) => {
+              const value = (photoResult.overview as unknown as Record<string, string>)[key] || 'unclear';
+              return (
+                <div key={key} className="rounded-xl border border-stone-100 bg-stone-50 px-3 py-2">
+                  <span className="block text-[11px] text-stone-500">{label}</span>
+                  <strong className="text-sm text-stone-900 capitalize">{value.replace(/_/g, ' ')}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {photoResult.zone_map && photoResult.zone_map.length > 0 && (
+        <div>
+          <h4 className="text-xs uppercase tracking-wider font-semibold text-stone-600 mb-2">Face map</h4>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {photoResult.zone_map.map((z) => (
+              <li
+                key={z.zone}
+                className="flex flex-wrap items-center gap-2 text-sm text-stone-800 border border-stone-100 rounded-xl px-3 py-2"
+              >
+                <span className="font-semibold">{FACE_SCAN_ZONE_LABELS[z.zone] || z.zone}</span>
+                <span
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                    FACE_SCAN_ZONE_STYLES[z.level] || FACE_SCAN_ZONE_STYLES.clear
+                  }`}
+                >
+                  {z.level}
+                </span>
+                {z.note && <span className="w-full text-xs text-stone-600">{z.note}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div>
+        <h4 className="text-xs uppercase tracking-wider font-semibold text-stone-600 mb-2">What we can see, biggest first</h4>
+        {used.length === 0 ? (
+          <p className="text-sm text-stone-600">
+            The scan did not pick up any visible concerns. That does not mean your skin has none, because cameras
+            miss things. Your picks come from your quiz answers.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {used.map((f) => (
+              <li
+                key={f.id}
+                className="flex flex-wrap items-center gap-2 text-sm text-stone-800 border border-stone-100 rounded-xl px-3 py-2"
+              >
+                <span className="font-semibold">{FACE_SCAN_TYPE_LABELS[f.type] || f.type}</span>
+                <span
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                    FACE_SCAN_SEVERITY_STYLES[f.severity] || FACE_SCAN_SEVERITY_STYLES.none
+                  }`}
+                >
+                  {f.severity}
+                </span>
+                {f.zones.length > 0 && (
+                  <span className="text-xs text-stone-500">{f.zones.join(', ').replace(/_/g, ' ')}</span>
+                )}
+                {f.note && <span className="w-full text-xs text-stone-600">{f.note}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {types.length > 0 && (
+        <div>
+          <h4 className="text-xs uppercase tracking-wider font-semibold text-stone-600 mb-2">What your skin needs</h4>
+          <ul className="space-y-2 text-sm text-stone-700">
+            {types.map((t) => (
+              <li key={t}>
+                <span className="font-semibold text-stone-900">{FACE_SCAN_TYPE_LABELS[t] || t}: </span>
+                {FACE_SCAN_NEEDS[t] || FACE_SCAN_NEEDS.other}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <p className="text-[11px] text-stone-500">
+        Cameras can misread marks, especially in poor light or on deeper skin tones. Products below use only the
+        findings you kept on the photo step.
+      </p>
     </div>
   );
 };

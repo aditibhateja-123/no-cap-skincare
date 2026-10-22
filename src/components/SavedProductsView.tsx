@@ -98,6 +98,22 @@ export const SavedProductsView: React.FC<SavedProductsViewProps> = ({
                   </button>
                 </div>
 
+                {p.image && (
+                  <div className="w-full h-32 rounded-2xl bg-stone-50 border border-stone-100 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      title="Image from the Nykaa listing"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      className="max-h-full max-w-full object-contain"
+                      onError={(e) => {
+                        (e.currentTarget.parentElement as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+
                 <h3 className="font-serif font-bold text-sm text-stone-900 leading-snug">
                   {p.name}
                 </h3>

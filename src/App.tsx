@@ -848,6 +848,7 @@ const LabelGuideView: React.FC = () => (
 
 // ---------- "I already know my concern": a shortcut past the long quiz ----------
 
+import extraConcernData from './data/concernProducts.json';
 import type {
   UserQuizAnswers as QCAnswers,
   AgeRange as QCAge,
@@ -906,15 +907,6 @@ const QC_NEEDS_A_DOCTOR = [
   'Deep, painful or cystic acne',
   'A sudden rash, swelling or burning',
   'Anything spreading, bleeding or that looks infected',
-];
-const QC_NOT_COVERED = [
-  'Dark circles',
-  'Open pores',
-  'Wrinkles and anti-ageing',
-  'Lip care',
-  'Body or back acne',
-  'Hair and scalp',
-  'Tan removal',
 ];
 
 const qcChip = (active: boolean) =>
@@ -1141,6 +1133,8 @@ const KnownConcernView: React.FC<KnownConcernViewProps> = ({ onSubmit, onOpenLab
         </div>
       </section>
 
+      <ExtraConcernsSection onOpenFinder={onOpenFinder} />
+
       <OtherConcernsBox onOpenLabelGuide={onOpenLabelGuide} />
 
       <p className="text-xs text-stone-500 text-center">Guidance, not medical advice.</p>
@@ -1176,15 +1170,11 @@ const OtherConcernsBox: React.FC<{ onOpenLabelGuide: () => void }> = ({ onOpenLa
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-stone-900 mb-1">Not covered yet</h3>
-            <ul className="list-disc pl-5 space-y-1">
-              {QC_NOT_COVERED.map((x) => (
-                <li key={x}>{x}</li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs text-stone-500">
-              Our product list focuses on acne, marks and sunscreen, so we have no verified picks for these. You can
-              still use the Label guide to judge any product you find.
+            <h3 className="font-semibold text-stone-900 mb-1">Something else?</h3>
+            <p className="text-sm text-stone-700">
+              If your concern is not covered here, we cannot match products to it, and we would rather say so than
+              guess. You can still use the Label guide to judge any product you find, and a dermatologist or
+              pharmacist can point you to the right one.
             </p>
             <button
               type="button"
@@ -1194,6 +1184,163 @@ const OtherConcernsBox: React.FC<{ onOpenLabelGuide: () => void }> = ({ onOpenLa
               Open the Label guide
             </button>
           </div>
+        </div>
+      )}
+    </section>
+  );
+};
+
+// ---------- Other concerns: simple picks by rating, with honest notes ----------
+
+interface ExtraProduct {
+  id: string;
+  name: string;
+  price: number;
+  mrp: number;
+  rating: number;
+  ratingCount: number;
+  url: string;
+  image: string;
+  checkedAt: string;
+  flag?: string;
+}
+
+const EXTRA_CONCERNS: { key: string; label: string; note: string; sunscreenFirst?: boolean }[] = [
+  {
+    key: 'darkcircles',
+    label: 'Dark circles',
+    note: 'Dark circles often come from sleep, genetics, allergies or thin skin, and eye products help only a little. Daily sunscreen and enough sleep matter more. See a doctor if one eye is darker than the other or it appeared suddenly.',
+  },
+  {
+    key: 'openpores',
+    label: 'Open pores',
+    note: 'Pore size is mostly genetic and cannot be shrunk for good. These products can keep pores clean so they look smaller. Do not squeeze or scrub, and use one active at a time.',
+  },
+  {
+    key: 'antiageing',
+    label: 'Wrinkles and anti-ageing',
+    note: 'Daily sunscreen is the most proven way to slow visible ageing. Our picks here leave out retinoids, so ask a dermatologist if you want one. Start with a sunscreen, then add one gentle product.',
+    sunscreenFirst: true,
+  },
+  {
+    key: 'lips',
+    label: 'Lip care',
+    note: 'Lips burn in the sun too, so a lip balm with SPF matters. If your lips stay cracked, sore or bleeding for weeks, see a doctor.',
+  },
+  {
+    key: 'bodyacne',
+    label: 'Body or back acne',
+    note: 'Shower soon after sweating and wear loose, breathable clothes. Washes with acids can sting, so start 2 to 3 times a week and stop if your skin burns. Deep, painful or scarring body acne needs a dermatologist.',
+  },
+  {
+    key: 'dandruff',
+    label: 'Dandruff or flaky scalp',
+    note: 'Flaking can be dandruff or a scalp condition. If you have red, sore or scaly patches, or it does not improve after about a month, see a dermatologist. Follow the label for how often to use these.',
+  },
+  {
+    key: 'hairfall',
+    label: 'Hair fall',
+    note: 'A shampoo keeps the scalp clean, but it does not treat the cause of hair fall. Sudden, patchy or heavy hair loss needs a doctor.',
+  },
+  {
+    key: 'tan',
+    label: 'Tan removal',
+    note: 'The best protection against tan is a daily sunscreen. De-tan products can irritate, so patch test first, skip them on sunburnt or broken skin, and do not combine them with other actives.',
+    sunscreenFirst: true,
+  },
+];
+
+const ExtraConcernsSection: React.FC<{ onOpenFinder: () => void }> = ({ onOpenFinder }) => {
+  const [open, setOpen] = useState<string | null>(null);
+  const active = EXTRA_CONCERNS.find((c) => c.key === open) || null;
+  const products: ExtraProduct[] = active
+    ? ((extraConcernData as unknown as Record<string, ExtraProduct[]>)[active.key] || [])
+    : [];
+
+  return (
+    <section className="bg-white border border-[#e7ded4] rounded-2xl p-5 sm:p-6 space-y-4">
+      <div>
+        <h2 className="font-serif text-lg font-bold text-stone-900">Other concerns</h2>
+        <p className="text-xs text-stone-500 mt-1">
+          For these we do not match products to your skin. We list well-rated products from Nykaa and give honest
+          notes. Tap one to see them.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {EXTRA_CONCERNS.map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => setOpen((cur) => (cur === c.key ? null : c.key))}
+            className={qcChip(open === c.key)}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {active && (
+        <div className="space-y-4 border-t border-stone-100 pt-4">
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-stone-800">
+            {active.note}
+            {active.sunscreenFirst && (
+              <button
+                type="button"
+                onClick={onOpenFinder}
+                className="block mt-2 text-xs font-semibold text-stone-900 underline underline-offset-2 cursor-pointer"
+              >
+                Find a sunscreen first
+              </button>
+            )}
+          </div>
+
+          <ul className="space-y-3">
+            {products.map((p) => (
+              <li key={p.id} className="flex items-center gap-3 rounded-xl border border-stone-100 px-3 py-3">
+                <img
+                  src={p.image}
+                  alt={p.name}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="w-16 h-16 object-contain rounded-lg bg-stone-50 shrink-0"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-sm font-semibold text-stone-900 leading-snug hover:underline underline-offset-2"
+                  >
+                    {p.name}
+                  </a>
+                  <span className="block text-[11px] text-stone-500 mt-0.5">
+                    Rated {p.rating} from {p.ratingCount.toLocaleString('en-IN')} ratings on Nykaa. Price checked{' '}
+                    {p.checkedAt}.
+                  </span>
+                  {p.flag && (
+                    <span className="inline-block mt-1 text-[10px] font-bold text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                      {p.flag}
+                    </span>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="block text-sm font-bold font-mono text-stone-900">{'\u20b9'}{p.price}</span>
+                  {p.mrp > p.price && (
+                    <span className="block text-[11px] font-mono text-stone-400 line-through">{'\u20b9'}{p.mrp}</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-[11px] text-stone-500">
+            These are picked by rating and number of ratings on Nykaa, with at least 4.0 stars and 500 ratings, and
+            no retinoids. They are not matched to your skin type and ingredients are not checked, so read the label.
+            If you are under 18, pregnant or breastfeeding, check with a doctor before adding any active product.
+          </p>
         </div>
       )}
     </section>

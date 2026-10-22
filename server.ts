@@ -281,8 +281,17 @@ const photoAnalysisSchema = {
 const ALLOWED_AGE_RANGES = new Set(['under 18', '18 to 24', '25 to 34', '35 or older']);
 
 // Try the preferred model first, then fall back to other models when one is busy or unavailable.
-const SCAN_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
-const PER_MODEL_TIMEOUT_MS = 18000;
+// Only models that are currently available to new API keys. gemini-2.5-flash is retired for new users.
+const SCAN_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-flash-latest',
+  'gemini-3.1-flash-lite',
+];
+const PER_MODEL_TIMEOUT_MS = 12000;
+const TOTAL_BUDGET_MS = 45000; // stay under the 60 second function limit
 
 function isRetryable(e: any): boolean {
   const status = Number(e?.status ?? e?.code ?? 0);
@@ -296,7 +305,9 @@ function isRetryable(e: any): boolean {
 async function generateWithFallback(params: any) {
   let lastError: any;
   const attempts: string[] = [];
+  const startedAt = Date.now();
   for (const model of SCAN_MODELS) {
+    if (Date.now() - startedAt > TOTAL_BUDGET_MS) break;
     try {
       return await Promise.race([
         ai.models.generateContent({ ...params, model }),

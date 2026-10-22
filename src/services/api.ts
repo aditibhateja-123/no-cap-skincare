@@ -67,13 +67,29 @@ export async function analyzePhoto(
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || 'Photo analysis failed.');
+      const failure: any = new Error(errData.error || 'Photo analysis failed.');
+      failure.reason = errData.reason;
+      throw failure;
     }
 
     const data: PhotoAnalysisResult = await response.json();
     return data;
   } catch (err: any) {
     // If backend is unreachable or fails, return an image_ok=false result with clear retake message
+    // A busy or unavailable scan service is not the person's fault, so say so.
+    const serviceProblem = ['busy', 'quota', 'timeout', 'model', 'api_key', 'unknown'].includes(err?.reason);
+    if (serviceProblem) {
+      return {
+        image_ok: false,
+        quality_issues: [],
+        findings: [],
+        needs_clinician: false,
+        clinician_reason: '',
+        confidence: 'low',
+        summary:
+          'The scan service is busy right now, so your photo could not be analysed. Please try again in a minute. Your picks can still come from your quiz answers.',
+      };
+    }
     return {
       image_ok: false,
       quality_issues: ['low_resolution'],

@@ -280,6 +280,38 @@ const photoAnalysisSchema = {
 
 const ALLOWED_AGE_RANGES = new Set(['under 18', '18 to 24', '25 to 34', '35 or older']);
 
+// Try the preferred model first, then fall back to other models when one is busy or unavailable.
+const SCAN_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
+const PER_MODEL_TIMEOUT_MS = 18000;
+
+function isRetryable(e: any): boolean {
+  const status = Number(e?.status ?? e?.code ?? 0);
+  const msg = String(e?.message ?? '');
+  return (
+    status === 503 || status === 429 || status === 500 || status === 504 || status === 404 ||
+    /UNAVAILABLE|high demand|overloaded|RESOURCE_EXHAUSTED|timed out|not found/i.test(msg)
+  );
+}
+
+async function generateWithFallback(params: any) {
+  let lastError: any;
+  for (const model of SCAN_MODELS) {
+    try {
+      return await Promise.race([
+        ai.models.generateContent({ ...params, model }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(Object.assign(new Error('timed out'), { status: 504 })), PER_MODEL_TIMEOUT_MS)
+        ),
+      ]);
+    } catch (e: any) {
+      lastError = e;
+      if (!isRetryable(e)) throw e;
+      console.error('scan model failed, trying next:', model, Number(e?.status ?? 0), String(e?.message ?? '').slice(0, 120));
+    }
+  }
+  throw lastError;
+}
+
 // API: Describe visible features in face photo
 app.post('/api/analyze-skin', async (req, res) => {
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
@@ -337,8 +369,7 @@ STRICT RULES:
 7. Fill "zone_map" with one entry for each face zone you can clearly see. Level "clear" means no visible concern in that zone. Keep each note under 15 words and purely descriptive.
 8. visible_pimples and visible_marks are rough counts of what you can see: few is 1 to 3, several is 4 to 9, many is 10 or more.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+    const response = await generateWithFallback({
       contents: {
         parts: [
           {
@@ -446,28 +477,16 @@ STRICT RULES:
     const msg = String(error?.message ?? '').slice(0, 300);
     console.error('analyze-skin failed:', status, msg);
     let reason = 'unknown';
-    if (/api key|permission|unauthenticated|PERMISSION_DENIED/i.test(msg) || status === 401 || status === 403) reason = 'api_key';
-    else if (/not found|is not supported|model/i.test(msg) || status === 404) reason = 'model';
-    else if (status === 429 || /quota|rate|exhausted/i.test(msg)) reason = 'quota';
-    else if (/timeout|deadline|abort/i.test(msg)) reason = 'timeout';
+    if (/api key|unauthenticated|PERMISSION_DENIED/i.test(msg) || status === 401 || status === 403) reason = 'api_key';
+    else if (status === 429 || /quota|exhausted/i.test(msg)) reason = 'quota';
+    else if (status === 503 || status === 504 || /UNAVAILABLE|high demand|overloaded|timed out/i.test(msg)) reason = 'busy';
+    else if (status === 404 || /not found/i.test(msg)) reason = 'model';
     return res.status(500).json({
       error: 'Unable to analyze photo at this time. You can still view recommendations with the quiz.',
       reason,
-      detail: msg.slice(0, 250), // TEMPORARY for diagnosis; remove after fixing
     });
   }
 });
-
-// TEMPORARY diagnostic: which models can the configured key use? Names only. Remove after use.
-app.get('/api/_models', async (_req, res) => {
-  try {
-    const pager: any = await ai.models.list();
-    const names: string[] = [];
-    for await (const m of pager) {
-      names.push(String(m.name));
-      if (names.length >= 200) break;
-    }
-    res.json({ count: names.length, names });
   } catch (error: any) {
     res.status(500).json({ error: String(error?.message ?? 'failed').slice(0, 200) });
   }

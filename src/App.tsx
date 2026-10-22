@@ -29,18 +29,31 @@ const CHECKINS_STORAGE_KEY = 'nocap_checkin_plans_v1';
 const WISHLIST_STORAGE_KEY = 'nocap_wishlist_ids_v1';
 const SHELF_STORAGE_KEY = 'nocap_my_shelf_v1';
 
+const SESSION_KEY = 'nocap_session_v1';
+// Keeps the current results for this browser tab only, so coming back from WhatsApp does not lose them.
+// The photo itself is never stored, only the quiz answers and what the scan found.
+function loadSession(): any {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide'>('home');
-  const [userAnswers, setUserAnswers] = useState<UserQuizAnswers | null>(null);
-  const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult | null>(null);
-  const [seenScan, setSeenScan] = useState<PhotoAnalysisResult | null>(null);
+  const [restored] = useState(loadSession);
+  const [activeTab, setActiveTab] = useState<'home' | 'finder' | 'concern' | 'label' | 'scanner' | 'checkins' | 'saved' | 'shelf' | 'history' | 'guide'>(restored?.tab ?? 'home');
+  const [userAnswers, setUserAnswers] = useState<UserQuizAnswers | null>(restored?.answers ?? null);
+  const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult | null>(restored?.photo ?? null);
+  const [seenScan, setSeenScan] = useState<PhotoAnalysisResult | null>(restored?.seen ? restored?.photo ?? null : null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [selectedProductForReview, setSelectedProductForReview] = useState<RankedProduct | null>(null);
   const [isToneGuideOpen, setIsToneGuideOpen] = useState(false);
   const [savedScans, setSavedScans] = useState<SavedConsultation[]>([]);
   const [isCurrentSaved, setIsCurrentSaved] = useState(false);
-  const [isDemoProfile, setIsDemoProfile] = useState(false);
+  const [isDemoProfile, setIsDemoProfile] = useState(Boolean(restored?.demo));
 
   // Check-in plans & Wishlist state
   const [checkInPlans, setCheckInPlans] = useState<CheckInPlan[]>([]);
@@ -238,6 +251,23 @@ export default function App() {
     setIsCurrentSaved(false);
     setActiveTab('scanner');
   };
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify({
+          tab: activeTab,
+          answers: userAnswers,
+          photo: photoResult,
+          seen: Boolean(photoResult && seenScan === photoResult),
+          demo: isDemoProfile,
+        })
+      );
+    } catch {
+      /* storage unavailable */
+    }
+  }, [activeTab, userAnswers, photoResult, seenScan, isDemoProfile]);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });

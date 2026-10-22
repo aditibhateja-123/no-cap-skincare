@@ -23,6 +23,7 @@ import { FeedbackCard, feedbackEnabled } from './components/FeedbackCard';
 import { FEEDBACK } from './feedbackConfig';
 import { ShareResultsCard } from './components/ShareResultsCard';
 import { AdminView } from './components/AdminView';
+import { track } from './analytics';
 
 const STORAGE_KEY = 'nocap_skincare_history_v2';
 const CHECKINS_STORAGE_KEY = 'nocap_checkin_plans_v1';
@@ -140,6 +141,7 @@ export default function App() {
 
   // Check-in plans management
   const handleStartCheckInPlan = (plan: CheckInPlan) => {
+    track('checkin_started');
     const updated = [plan, ...checkInPlans];
     setCheckInPlans(updated);
     try {
@@ -236,6 +238,8 @@ export default function App() {
     photoRes: PhotoAnalysisResult | null,
     isDemo?: boolean
   ) => {
+    track('quiz_done');
+    if (photoRes) track('scan_done');
     setUserAnswers(answers);
     setPhotoResult(photoRes);
     setIsDemoProfile(Boolean(isDemo));
@@ -274,6 +278,14 @@ export default function App() {
   }, [activeTab, userAnswers, seenScan]);
 
   const onResults = activeTab === 'scanner' && userAnswers && !(photoResult && seenScan !== photoResult);
+  useEffect(() => {
+    track('open');
+  }, []);
+
+  useEffect(() => {
+    if (onResults) track('results_viewed');
+  }, [onResults]);
+
   const nextStep: { text: string; label: string; go: () => void } | null =
     activeTab === 'finder'
       ? { text: 'Want a full routine, not just sunscreen? Answer a short quiz.', label: 'Start the quiz', go: () => setActiveTab('scanner') }
@@ -334,9 +346,9 @@ export default function App() {
             </div>
             <div className="grid gap-4">
               {[
-                { Icon: HomeCamera, title: 'Get my full routine', text: 'A short quiz and an optional face photo. You get what we see, then picks and a morning and night routine.', go: () => setActiveTab('scanner') },
-                { Icon: HomeSun, title: 'Find a sunscreen', text: 'Three taps, no photo. Matches for your skin feel, tone and budget, with no white cast options.', go: () => setActiveTab('finder') },
-                { Icon: HomeTarget, title: 'I already know my concern', text: 'Pick a concern, such as acne marks, dark circles, dandruff or hair fall, and skip the quiz.', go: () => setActiveTab('concern') },
+                { Icon: HomeCamera, title: 'Get my full routine', text: 'A short quiz and an optional face photo. You get what we see, then picks and a morning and night routine.', go: () => { track('choose_routine'); setActiveTab('scanner'); } },
+                { Icon: HomeSun, title: 'Find a sunscreen', text: 'Three taps, no photo. Matches for your skin feel, tone and budget, with no white cast options.', go: () => { track('choose_sunscreen'); setActiveTab('finder'); } },
+                { Icon: HomeTarget, title: 'I already know my concern', text: 'Pick a concern, such as acne marks, dark circles, dandruff or hair fall, and skip the quiz.', go: () => { track('choose_concern'); setActiveTab('concern'); } },
               ].map(({ Icon, title, text, go }) => (
                 <button
                   key={title}
@@ -480,6 +492,7 @@ export default function App() {
           </p>
           <div className="flex items-center gap-4 text-stone-500 text-center sm:text-right">
             <span>Prices are a snapshot from Nykaa. These links earn us nothing.</span>
+            <span>We count anonymous steps, never your answers.</span>
             {feedbackEnabled && FEEDBACK.viewUrl && (
               <a href={FEEDBACK.viewUrl} target="_blank" rel="noreferrer" className="text-stone-700 hover:text-stone-900 font-medium underline">
                 Give feedback

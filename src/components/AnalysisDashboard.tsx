@@ -1,3 +1,4 @@
+import { track } from '../analytics';
 import React, { useState } from 'react';
 import {
   AlertCircle,
@@ -1099,6 +1100,7 @@ const RoutineCostCard: React.FC<{ groups: RankedProduct[][]; labels: string[] }>
   const shareText = buildShareText(picks);
 
   const shareOnWhatsApp = () => {
+    track('share_clicked');
     // On phones, the native share sheet keeps this page open. Some in-app browsers
     // lose the page when it jumps straight to WhatsApp.
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {

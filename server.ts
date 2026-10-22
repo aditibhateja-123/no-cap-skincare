@@ -616,6 +616,54 @@ app.get('/api/admin/shares', async (req, res) => {
   }
 });
 
+// ---- Anonymous step counts (name and day only, no ids, answers or photos) ----
+const EVENT_NAMES = new Set([
+  'open', 'choose_routine', 'choose_sunscreen', 'choose_concern',
+  'quiz_done', 'scan_done', 'results_viewed', 'checkin_started', 'share_clicked',
+]);
+const EVENTS_KEY = 'nocap:events';
+const eventHistory = new Map<string, number[]>();
+
+app.post('/api/event', async (req, res) => {
+  if (!REDIS_URL || !REDIS_TOKEN) return res.status(204).end();
+  const name = cleanStr(req.body?.name);
+  if (!EVENT_NAMES.has(name)) return res.status(400).json({ error: 'Unknown event.' });
+  const ip = req.ip || 'unknown';
+  const now = Date.now();
+  const recent = (eventHistory.get(ip) || []).filter((t) => now - t < 5 * 60 * 1000);
+  if (recent.length >= 60) return res.status(429).end();
+  recent.push(now);
+  eventHistory.set(ip, recent);
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    await redisCommand(['HINCRBY', EVENTS_KEY, `${day}|${name}`, 1]);
+    res.status(204).end();
+  } catch {
+    res.status(500).end();
+  }
+});
+
+app.get('/api/admin/events', async (req, res) => {
+  const adminPassword = process.env.ADMIN_PASSWORD || '';
+  if (!adminPassword || !REDIS_URL || !REDIS_TOKEN) return res.status(503).json({ error: 'Admin view is not set up.' });
+  const given = String(req.headers['x-admin-password'] || '');
+  const ok =
+    given.length === adminPassword.length &&
+    crypto.timingSafeEqual(Buffer.from(given), Buffer.from(adminPassword));
+  if (!ok) return res.status(401).json({ error: 'Wrong password.' });
+  try {
+    const flat: string[] = await redisCommand(['HGETALL', EVENTS_KEY]);
+    const counts: Record<string, Record<string, number>> = {};
+    for (let i = 0; i < flat.length; i += 2) {
+      const [day, name] = flat[i].split('|');
+      (counts[day] ||= {})[name] = Number(flat[i + 1]);
+    }
+    res.json({ counts });
+  } catch {
+    res.status(500).json({ error: 'Could not read.' });
+  }
+});
+
 // Setup dev server with Vite or serve static files in production
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {

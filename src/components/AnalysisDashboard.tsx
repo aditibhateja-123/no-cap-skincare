@@ -337,7 +337,10 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
       {/* ================= PRODUCT CARDS SECTIONS ================= */}
       <div className="space-y-8">
-        <RoutineCostCard groups={[rankedCleansers, rankedMoisturizers, rankedSunscreens, rankedTreatments]} />
+        <RoutineCostCard
+          groups={[rankedCleansers, rankedMoisturizers, rankedSunscreens, rankedTreatments]}
+          labels={['Cleanser', 'Moisturizer', 'Sunscreen', 'Treatment']}
+        />
 
         {/* Cleansers */}
         {rankedCleansers.length > 0 && (
@@ -1054,7 +1057,7 @@ function downloadSixWeekReminder() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const RoutineCostCard: React.FC<{ groups: RankedProduct[][] }> = ({ groups }) => {
+const RoutineCostCard: React.FC<{ groups: RankedProduct[][]; labels: string[] }> = ({ groups, labels }) => {
   const [copied, setCopied] = useState(false);
   const filled = groups.filter((g) => g.length > 0);
   if (filled.length === 0) return null;
@@ -1082,7 +1085,7 @@ const RoutineCostCard: React.FC<{ groups: RankedProduct[][] }> = ({ groups }) =>
     <div className="p-5 sm:p-6 rounded-3xl bg-white border border-stone-200 space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h3 className="font-serif text-lg font-bold text-stone-900">Your routine cost</h3>
+          <h3 className="font-serif text-lg font-bold text-stone-900">Your picks and what they cost</h3>
           <p className="text-[11px] text-stone-500">
             Based on the first pick for each type. Prices are a snapshot and change often.
           </p>
@@ -1099,6 +1102,35 @@ const RoutineCostCard: React.FC<{ groups: RankedProduct[][] }> = ({ groups }) =>
           )}
         </div>
       </div>
+
+      <ul className="space-y-2">
+        {groups.map((g, i) =>
+          g.length > 0 ? (
+            <li key={labels[i]} className="flex items-center gap-3 rounded-xl border border-stone-100 px-3 py-2">
+              {g[0].image && (
+                <img
+                  src={g[0].image}
+                  alt={g[0].name}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="w-12 h-12 object-contain rounded-lg bg-stone-50 shrink-0"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <span className="block text-[10px] uppercase tracking-wider font-bold text-stone-500">{labels[i]}</span>
+                <span className="block text-sm font-semibold text-stone-900 leading-snug">{g[0].name}</span>
+              </div>
+              <span className="text-sm font-bold font-mono text-stone-900 shrink-0">₹{g[0].price}</span>
+            </li>
+          ) : null
+        )}
+      </ul>
+      <p className="text-[11px] text-stone-500">
+        See every option, with reviews and links, in the sections below.
+      </p>
 
       <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-stone-100">
         <button

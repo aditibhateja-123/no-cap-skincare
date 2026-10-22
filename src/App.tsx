@@ -759,7 +759,7 @@ const LABEL_GUIDE_SECTIONS: { title: string; points: string[] }[] = [
     title: 'Sunscreen for oily, acne-prone skin',
     points: [
       'Look for SPF 30 or higher. SPF 50 gives a little more, but the real difference is wearing it every day.',
-      'PA+++ or PA++++ means better UVA protection. UVA is the part that keeps dark marks from fading.',
+      'PA+++ or PA++++ means stronger UVA protection. Sun exposure can keep dark marks dark, which is why a daily sunscreen matters.',
       'Words like "gel", "oil-free" or "matte" usually mean a lighter feel on oily skin. They are labels, not guarantees.',
       'On deeper skin tones, look for "no white cast". Mineral filters (zinc oxide, titanium dioxide) can leave a grey or white film.',
       'Use about two finger lengths for the face and neck, and reapply every 2 to 3 hours if you are outdoors.',
@@ -769,7 +769,9 @@ const LABEL_GUIDE_SECTIONS: { title: string; points: string[] }[] = [
     title: 'Actives on the label',
     points: [
       'Use one active at a time. If a product lists a percentage, like "10% niacinamide", higher is not always better for a beginner.',
-      'Azelaic acid, niacinamide and salicylic acid are the actives our picks start with. Retinoids, strong acids and peels are not recommended here.',
+      'Azelaic acid, niacinamide and salicylic acid are the gentle actives our picks start with. Retinoids, strong acids and peels are not part of our picks, so ask a dermatologist about them.',
+      'If a doctor has prescribed something for your skin, follow their advice and ask before adding anything new.',
+      'If you are under 18, pregnant or breastfeeding, check with a doctor before adding any active.',
       'Do a patch test first: a small dot behind the ear or on the jaw for 2 to 3 days.',
       'If it stings, burns, swells or gives you a rash, stop using it and see a doctor.',
     ],
@@ -780,7 +782,7 @@ const LABEL_GUIDE_SECTIONS: { title: string; points: string[] }[] = [
       'Heavily fragranced products, if your skin stings easily.',
       'Physical scrubs and harsh peels on active pimples.',
       'Products that promise marks gone in days. Marks usually fade over months.',
-      '"Dermatologist recommended" on a pack is a marketing claim. It does not tell you if it suits your skin.',
+      '"Dermatologist recommended" on a pack is a claim you cannot check from the label. It does not mean it will suit your skin.',
     ],
   },
   {

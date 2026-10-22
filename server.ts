@@ -304,7 +304,6 @@ function isRetryable(e: any): boolean {
 
 async function generateWithFallback(params: any) {
   let lastError: any;
-  const attempts: string[] = [];
   const startedAt = Date.now();
   for (const model of SCAN_MODELS) {
     if (Date.now() - startedAt > TOTAL_BUDGET_MS) break;
@@ -317,8 +316,6 @@ async function generateWithFallback(params: any) {
       ]);
     } catch (e: any) {
       lastError = e;
-      attempts.push(model + ' -> ' + Number(e?.status ?? 0) + ' ' + String(e?.message ?? '').slice(0, 140));
-      e.attempts = attempts;
       if (!isRetryable(e)) throw e;
       console.error('scan model failed, trying next:', model, Number(e?.status ?? 0), String(e?.message ?? '').slice(0, 120));
     }
@@ -498,7 +495,6 @@ STRICT RULES:
     return res.status(500).json({
       error: 'Unable to analyze photo at this time. You can still view recommendations with the quiz.',
       reason,
-      attempts: error?.attempts, // TEMPORARY for diagnosis
     });
   }
 });

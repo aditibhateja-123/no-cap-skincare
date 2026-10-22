@@ -1,6 +1,7 @@
 import express from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
@@ -532,6 +533,86 @@ STRICT RULES:
       error: 'Unable to analyze photo at this time. You can still view recommendations with the quiz.',
       reason,
     });
+  }
+});
+
+// ---- Opt-in result sharing and a password-protected admin list ----
+// Needs an Upstash Redis database (Vercel Marketplace). Without it, sharing is switched off.
+const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
+const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const SHARES_KEY = 'nocap:shares';
+
+async function redisCommand(command: (string | number)[]): Promise<any> {
+  const r = await fetch(REDIS_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${REDIS_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(command),
+  });
+  if (!r.ok) throw new Error('redis ' + r.status);
+  return (await r.json()).result;
+}
+
+const cleanStr = (v: unknown) => (typeof v === 'string' ? v.slice(0, 60) : '');
+const cleanList = (v: unknown, max = 12) =>
+  Array.isArray(v) ? v.slice(0, max).map(cleanStr).filter(Boolean) : [];
+
+app.get('/api/share-status', (_req, res) => {
+  res.json({ enabled: Boolean(REDIS_URL && REDIS_TOKEN) });
+});
+
+app.post('/api/share', async (req, res) => {
+  if (!REDIS_URL || !REDIS_TOKEN) return res.status(503).json({ error: 'Sharing is not set up.' });
+  const ip = req.ip || 'unknown';
+  if (!checkRateLimit(ip)) return res.status(429).json({ error: 'Too many requests.' });
+  const b = req.body || {};
+  if (b.consent !== true) return res.status(400).json({ error: 'Consent is required.' });
+  const a = b.answers || {};
+  const age = cleanStr(a.ageRange);
+  if (!age || age === 'under 18') return res.status(403).json({ error: 'Sharing is not available for this age range.' });
+  const record = {
+    at: new Date().toISOString(),
+    answers: {
+      lookingFor: cleanList(a.lookingFor),
+      ageRange: age,
+      skinTone: cleanStr(a.skinTone),
+      concerns: cleanList(a.concerns),
+      middayFeel: cleanStr(a.middayFeel),
+      breakoutLevel: cleanStr(a.breakoutLevel),
+      marksDuration: cleanStr(a.marksDuration),
+      sensitivity: cleanStr(a.sensitivity),
+      healthSituations: cleanList(a.healthSituations),
+      budget: cleanStr(a.budget),
+    },
+    scanFindings: Array.isArray(b.scanFindings)
+      ? b.scanFindings.slice(0, 12).map((f: any) => ({ type: cleanStr(f?.type), severity: cleanStr(f?.severity) }))
+      : [],
+    scanConfidence: cleanStr(b.scanConfidence),
+  };
+  try {
+    await redisCommand(['LPUSH', SHARES_KEY, JSON.stringify(record)]);
+    await redisCommand(['LTRIM', SHARES_KEY, 0, 999]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Could not save.' });
+  }
+});
+
+app.get('/api/admin/shares', async (req, res) => {
+  const adminPassword = process.env.ADMIN_PASSWORD || '';
+  if (!adminPassword || !REDIS_URL || !REDIS_TOKEN) return res.status(503).json({ error: 'Admin view is not set up.' });
+  const given = String(req.headers['x-admin-password'] || '');
+  const ok =
+    given.length === adminPassword.length &&
+    crypto.timingSafeEqual(Buffer.from(given), Buffer.from(adminPassword));
+  if (!ok) {
+    if (!checkRateLimit('admin:' + (req.ip || 'unknown'))) return res.status(429).json({ error: 'Too many attempts.' });
+    return res.status(401).json({ error: 'Wrong password.' });
+  }
+  try {
+    const rows: string[] = await redisCommand(['LRANGE', SHARES_KEY, 0, 999]);
+    res.json({ shares: rows.map((r) => JSON.parse(r)) });
+  } catch {
+    res.status(500).json({ error: 'Could not read.' });
   }
 });
 

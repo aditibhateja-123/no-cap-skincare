@@ -21,6 +21,8 @@ import {
 import { Sparkles, Camera as HomeCamera, Sun as HomeSun, Target as HomeTarget } from 'lucide-react';
 import { FeedbackCard, feedbackEnabled } from './components/FeedbackCard';
 import { FEEDBACK } from './feedbackConfig';
+import { ShareResultsCard } from './components/ShareResultsCard';
+import { AdminView } from './components/AdminView';
 
 const STORAGE_KEY = 'nocap_skincare_history_v2';
 const CHECKINS_STORAGE_KEY = 'nocap_checkin_plans_v1';
@@ -261,6 +263,14 @@ export default function App() {
       ? { text: 'Next, put these picks into a morning and night routine.', label: 'Go to My shelf', go: () => setActiveTab('shelf') }
       : null;
 
+  if (typeof window !== 'undefined' && window.location.hash === '#admin') {
+    return (
+      <div className="min-h-screen bg-[#faf8f5] text-stone-900">
+        <AdminView />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#faf8f5] text-stone-900 selection:bg-amber-200">
       {/* Navigation */}
@@ -400,6 +410,7 @@ export default function App() {
         )}
       </main>
 
+      {onResults && userAnswers && <ShareResultsCard answers={userAnswers} photoResult={photoResult} />}
       {(onResults || activeTab === 'shelf' || activeTab === 'checkins') && <FeedbackCard />}
 
       {nextStep && (

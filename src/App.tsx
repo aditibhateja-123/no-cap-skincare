@@ -235,6 +235,30 @@ export default function App() {
     setActiveTab('scanner');
   };
 
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [activeTab, userAnswers, seenScan]);
+
+  const onResults = activeTab === 'scanner' && userAnswers && !(photoResult && seenScan !== photoResult);
+  const nextStep: { text: string; label: string; go: () => void } | null =
+    activeTab === 'finder'
+      ? { text: 'Want a full routine, not just sunscreen? Answer a short quiz.', label: 'Start the quiz', go: () => setActiveTab('scanner') }
+      : activeTab === 'concern'
+      ? null
+      : activeTab === 'label'
+      ? { text: 'Now put it to use: find a sunscreen that fits you.', label: 'Open the sunscreen finder', go: () => setActiveTab('finder') }
+      : activeTab === 'shelf'
+      ? { text: 'Set a reminder to check your skin in 6 weeks.', label: 'Go to check-ins', go: () => setActiveTab('checkins') }
+      : activeTab === 'checkins'
+      ? { text: 'Learn how to read a product label before you buy.', label: 'Open the label guide', go: () => setActiveTab('label') }
+      : activeTab === 'saved'
+      ? { text: 'Add what you own to your morning and night routine.', label: 'Go to My shelf', go: () => setActiveTab('shelf') }
+      : activeTab === 'history'
+      ? { text: 'Ready for a fresh look?', label: 'Start a new scan', go: handleNewScan }
+      : onResults
+      ? { text: 'Next, put these picks into a morning and night routine.', label: 'Go to My shelf', go: () => setActiveTab('shelf') }
+      : null;
+
   return (
     <div className="min-h-screen flex flex-col bg-[#faf8f5] text-stone-900 selection:bg-amber-200">
       {/* Navigation */}
@@ -255,7 +279,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-16">
+      <main className="flex-1 pb-24 md:pb-16">
         {activeTab === 'finder' ? (
           <SunscreenFinderView
             savedWishlistIds={savedWishlistIds}
@@ -340,6 +364,23 @@ export default function App() {
           />
         )}
       </main>
+
+      {nextStep && (
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 pb-8">
+          <div className="rounded-3xl border border-stone-200 bg-white p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+            <div>
+              <div className="text-[11px] uppercase tracking-wider font-bold text-stone-500">Next step</div>
+              <p className="text-sm text-stone-700 mt-0.5">{nextStep.text}</p>
+            </div>
+            <button
+              onClick={nextStep.go}
+              className="shrink-0 px-6 py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm rounded-xl cursor-pointer"
+            >
+              {nextStep.label} →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-[#e7ded4] bg-white py-8 px-4 text-xs text-stone-500">

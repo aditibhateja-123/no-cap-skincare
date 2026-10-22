@@ -532,10 +532,6 @@ STRICT RULES:
     });
   }
 });
-  } catch (error: any) {
-    res.status(500).json({ error: String(error?.message ?? 'failed').slice(0, 200) });
-  }
-});
 
 // Setup dev server with Vite or serve static files in production
 async function startServer() {

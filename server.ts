@@ -666,6 +666,7 @@ app.get('/api/admin/events', async (req, res) => {
 
 // ---- In-app feedback ("How was your experience?") ----
 const FEEDBACK_KEY = 'nocap:feedback';
+const RESEARCH_TIMES = new Set(['under 10 min', '10 to 30 min', '30 to 60 min', 'over 1 hour', 'first time buying']);
 
 app.post('/api/feedback', async (req, res) => {
   if (!REDIS_URL || !REDIS_TOKEN) return res.status(503).json({ error: 'Feedback is not set up.' });
@@ -673,7 +674,8 @@ app.post('/api/feedback', async (req, res) => {
   const rating = Number(req.body?.rating);
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating must be 1 to 5.' });
   const text = (v: unknown) => (typeof v === 'string' ? v.trim().slice(0, 500) : '');
-  const record = { at: new Date().toISOString(), rating, worked: text(req.body?.worked), confused: text(req.body?.confused) };
+  const researchTime = typeof req.body?.researchTime === 'string' && RESEARCH_TIMES.has(req.body.researchTime) ? req.body.researchTime : '';
+  const record = { at: new Date().toISOString(), rating, researchTime, worked: text(req.body?.worked), confused: text(req.body?.confused) };
   try {
     await redisCommand(['LPUSH', FEEDBACK_KEY, JSON.stringify(record)]);
     await redisCommand(['LTRIM', FEEDBACK_KEY, 0, 999]);

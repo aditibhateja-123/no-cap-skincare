@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 export const FeedbackCard: React.FC = () => {
   const [enabled, setEnabled] = useState(false);
   const [rating, setRating] = useState(0);
+  const [researchTime, setResearchTime] = useState('');
   const [worked, setWorked] = useState('');
   const [confused, setConfused] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
@@ -23,7 +24,7 @@ export const FeedbackCard: React.FC = () => {
       const r = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating, worked, confused }),
+        body: JSON.stringify({ rating, researchTime, worked, confused }),
       });
       setState(r.ok ? 'done' : 'error');
     } catch {
@@ -61,6 +62,23 @@ export const FeedbackCard: React.FC = () => {
               </button>
             ))}
             <span className="text-[11px] text-stone-500 ml-1">1 = not helpful, 5 = very helpful</span>
+          </div>
+          <div className="text-sm text-stone-800">
+            Before No Cap, how long did you usually spend deciding what skincare to buy? (optional)
+            <div className="flex flex-wrap gap-2 mt-2">
+              {['under 10 min', '10 to 30 min', '30 to 60 min', 'over 1 hour', 'first time buying'].map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => setResearchTime(researchTime === o ? '' : o)}
+                  className={`px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer ${
+                    researchTime === o ? 'bg-stone-900 text-white border-stone-900' : 'bg-white text-stone-800 border-stone-300'
+                  }`}
+                >
+                  {o}
+                </button>
+              ))}
+            </div>
           </div>
           <label className="block text-sm text-stone-800">
             What worked for you? (optional)

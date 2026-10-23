@@ -16,7 +16,7 @@ export const AdminView: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const [events, setEvents] = useState<Record<string, Record<string, number>>>({});
-  const [feedback, setFeedback] = useState<{ at: string; rating: number; worked: string; confused: string }[]>([]);
+  const [feedback, setFeedback] = useState<{ at: string; rating: number; researchTime?: string; worked: string; confused: string }[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -140,9 +140,17 @@ export const AdminView: React.FC = () => {
           )}
         </div>
         {feedback.length === 0 && <p className="text-xs text-stone-500">No feedback yet.</p>}
+        {feedback.some((f) => f.researchTime) && (
+          <div className="text-sm">
+            <div className="text-[11px] uppercase tracking-wider font-bold text-stone-500 mb-1">Time spent deciding before No Cap</div>
+            {['under 10 min', '10 to 30 min', '30 to 60 min', 'over 1 hour', 'first time buying'].map((o) => (
+              <div key={o} className="flex justify-between"><span>{o}</span><span className="font-bold">{feedback.filter((f) => f.researchTime === o).length}</span></div>
+            ))}
+          </div>
+        )}
         {feedback.map((f, i) => (
           <div key={i} className="border-t border-stone-100 pt-2 text-sm">
-            <div className="text-xs text-stone-500">{new Date(f.at).toLocaleString('en-IN')} · rating {f.rating}/5</div>
+            <div className="text-xs text-stone-500">{new Date(f.at).toLocaleString('en-IN')} · rating {f.rating}/5{f.researchTime ? ' · research: ' + f.researchTime : ''}</div>
             {f.worked && <p><b>Worked:</b> {f.worked}</p>}
             {f.confused && <p><b>Confusing or missing:</b> {f.confused}</p>}
           </div>

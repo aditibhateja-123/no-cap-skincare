@@ -486,8 +486,11 @@ export default function App() {
                 {nextStep.label} →
               </button>
               {nextStep.label !== 'Finish' && (
-                <button onClick={() => setActiveTab('done')} className="text-xs text-stone-600 underline cursor-pointer">
-                  I’m done, finish up
+                <button
+                  onClick={() => setActiveTab('done')}
+                  className="px-6 py-3 bg-white hover:bg-stone-50 text-stone-900 border-2 border-stone-900 font-bold text-sm rounded-xl cursor-pointer"
+                >
+                  ✓ I’m done, finish up
                 </button>
               )}
             </div>
